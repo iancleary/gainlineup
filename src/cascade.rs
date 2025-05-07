@@ -2,8 +2,8 @@
 #[derive(Debug)]
 pub struct GainBlock {
     name: String,
-    gain: f64,
-    noise_figure: f64, // nf would be ambiguous between noise factor and noise figure
+    gain: f64, // dB
+    noise_figure: f64, // dB, nf would be ambiguous between noise factor and noise figure
 }
 
 fn cascade(input_power: f64, block1: GainBlock) -> f64 {
