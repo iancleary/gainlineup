@@ -11,6 +11,6 @@ dependencies = [
 
 [[package]]
 name = "rfconversions"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6728a080ff891b5606ec6c2b4d26ca962251bf495a214aafba3eaf9c2d3f6f5d"
+checksum = "13d9e0a4047d35dc5e46b9515778ddcf17f2556a59f9e29da27042b41d4cc348"
