@@ -160,5 +160,5 @@ cython_debug/
 #.idea/
 
 .direnv/
-.vscode/
+.vscode/*
 !.vscode/settings.json
