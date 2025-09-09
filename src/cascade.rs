@@ -1,17 +1,17 @@
 // the input to our `create_user` handler
 #[derive(Clone, Debug)]
 pub struct GainBlock {
-    name: String,
-    gain: f64,         // dB
-    noise_figure: f64, // dB, nf would be ambiguous between noise factor and noise figure
+    pub name: String,
+    pub gain: f64,         // dB
+    pub noise_figure: f64, // dB, nf would be ambiguous between noise factor and noise figure
 }
 
 #[derive(Clone, Debug)]
 pub struct SignalNode {
-    name: String,
-    power: f64,             // dBm
-    noise_temperature: f64, // cumulative, dB
-    cumulative_gain: f64,   // cumulative, dB (set to 0 at start)
+    pub name: String,
+    pub power: f64,             // dBm
+    pub noise_temperature: f64, // cumulative, dB
+    pub cumulative_gain: f64,   // cumulative, dB (set to 0 at start)
 }
 
 pub fn cascade(input_power: f64, block1: GainBlock) -> f64 {
