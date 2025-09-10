@@ -136,3 +136,6 @@ Gain:      10.00 dB
 
 ----------------------------
 ```
+
+> behind the scenes, this calculates cumulative noise figure, by converting to noise temperature and performing the cascade functions.
+> this could be added to the printouts :)
