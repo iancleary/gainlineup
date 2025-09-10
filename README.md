@@ -100,8 +100,39 @@ fn run() {
 
 ```
 
-> `println!("Output Power\t{:>8.2} dBm", node.power);`
-> 
-> the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
-> 
-> with two digits after the decimal (hundredths place)
+The output is similar to the following:
+
+```
+Hello, world!
+
+----------------------------
+
+Run function executed
+
+Node 0: Input
+Input Level    10.00 dBm
+
+Node 1: Cable Run from Signal Generator to DUT Output
+Input Power        10.00 dBm
+Block Gain:        -6.00 dB    (Cumulative Gain:    -6.00 dB)
+Output Power        4.00 dBm
+
+Node 2: Line Amp at X GHz Output
+Input Power         4.00 dBm
+Block Gain:        22.00 dB    (Cumulative Gain:    16.00 dB)
+Output Power       26.00 dBm
+
+Node 3: Cable Run from DUT to Spectrum Analyzer Output
+Input Power        26.00 dBm
+Block Gain:        -6.00 dB    (Cumulative Gain:    10.00 dB)
+Output Power       20.00 dBm
+
+Final Cascade Summary:
+----------------------
+Number of Blocks: 3
+Pin:       10.00 dBm
+Pout:      20.00 dBm
+Gain:      10.00 dB
+
+----------------------------
+```
