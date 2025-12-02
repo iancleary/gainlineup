@@ -6,6 +6,16 @@ pub struct Block {
     pub noise_figure: f64, // dB, nf would be ambiguous between noise factor and noise figure
 }
 
+impl Block {
+    pub fn new(name: String, gain: f64, noise_figure: f64) -> Block {
+        Block {
+            name,
+            gain,
+            noise_figure,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SignalNode {
     pub name: String,
@@ -67,6 +77,18 @@ mod tests {
             gain: 10.0,
             noise_figure: 3.0,
         };
+        let output_power = super::cascade(input_power, amplifier);
+
+        assert_eq!(output_power, -20.0);
+    }
+
+    #[test]
+    fn one_part_new() {
+        let input_power: f64 = -30.0;
+        let name = "Simple Amplifier".to_string();
+        let gain = 10.0;
+        let noise_figure = 3.0;
+        let amplifier = super::Block::new(name, gain, noise_figure);
         let output_power = super::cascade(input_power, amplifier);
 
         assert_eq!(output_power, -20.0);
