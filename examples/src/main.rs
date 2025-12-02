@@ -1,37 +1,88 @@
-extern crate gainlineup;
-use rfconversions;
+// use gainlineup::cascade::cascade_vector_return_output;
+use gainlineup::cascade_vector_return_vector;
+use gainlineup::Block;
+use gainlineup::SignalNode;
 
 fn main() {
-    println!("Hello, World!");
+    println!("\n----------------------------\n");
+    run();
+    println!("----------------------------\n");
+}
 
-    let input_power: f64 = -30.0;
+fn run() {
+    println!("Run function executed");
 
-    println!("Input Power: {} dBm", input_power);
-    let input_node = gainlineup::SignalNode {
+    // Add your code logic here
+    const INPUT_POWER: f64 = 10.0; // dBm
+
+    let input_node = SignalNode {
         name: "Input".to_string(),
-        power: input_power,
-        noise_temperature: 290.0, // 290 K is room temperature
-        cumulative_gain: 0.0,     // starting/initial/input node of cascade
+        power: INPUT_POWER,
+        noise_temperature: 290.0,
+        cumulative_gain: 0.0, // starting/initial/input node of cascade
     };
 
-    println!("Input Node: {:#?}", input_node);
-    let amplifier = gainlineup::Block {
-        name: "Low Noise Amplifier".to_string(),
-        gain: 30.0,        // dB
-        noise_figure: 3.0, // dB
+    let cable_from_signal_generator = Block {
+        name: "Cable Run from Signal Generator to DUT".to_string(),
+        gain: -6.0,
+        noise_figure: 6.0,
     };
 
-    println!("Amplifier: {:#?}", amplifier);
-    let output_node = gainlineup::cascade_node(input_node, amplifier);
+    let line_amp: Block = Block {
+        name: "Line Amp at X GHz".to_string(),
+        gain: 22.0,
+        noise_figure: 6.0,
+    };
 
-    assert_eq!(output_node.power, 0.0);
-    assert_eq!(output_node.name, "Low Noise Amplifier Output");
-    // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
-    let output_noise_figure =
-        rfconversions::noise::noise_figure_from_noise_temperature(output_node.noise_temperature);
-    assert_eq!(output_noise_figure, 3.0124584457866126);
+    let cable_run_to_spectrum_analyzer: Block = Block {
+        name: "Cable Run from DUT to Spectrum Analyzer".to_string(),
+        gain: -6.0,
+        noise_figure: 12.0,
+    };
 
-    println!("Output Node: {:#?}", output_node);
-    println!("Output Power: {} dBm", output_node.power);
-    println!("Output Noise Figure: {} dB", output_noise_figure);
+    let blocks = vec![
+        cable_from_signal_generator.clone(),
+        line_amp.clone(),
+        cable_run_to_spectrum_analyzer.clone(),
+    ];
+
+    let full_cascade: Vec<SignalNode> =
+        cascade_vector_return_vector(input_node.clone(), blocks.clone());
+
+    // println!("{:>8.2} dBm", node.power);`
+
+    for (i, node) in full_cascade.iter().enumerate() {
+        println!("");
+        println!("Node {}: {}", i, node.name);
+
+        if i == 0 {
+            // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
+            // with two digits after the decimal (hundredths place)
+            println!("Input Level {:>8.2} dBm", node.power);
+        } else {
+            let block_gain = full_cascade[i].power - full_cascade[i - 1].power;
+            let input_power = node.power - block_gain;
+
+            // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
+            // with two digits after the decimal (hundredths place)
+            println!("Input Power\t{:>8.2} dBm", input_power);
+            println!(
+                "Block Gain:\t{:>8.2} dB    (Cumulative Gain: {:>8.2} dB)",
+                block_gain, node.cumulative_gain
+            );
+            println!("Output Power\t{:>8.2} dBm", node.power);
+        }
+    }
+    println!();
+    println!("Final Cascade Summary:");
+    println!("----------------------");
+    println!("Number of Blocks: {}", full_cascade.len() - 1);
+    println!("Pin:\t{:>8.2} dBm", full_cascade[0].power);
+
+    let final_output_power = full_cascade.last().unwrap().power;
+    println!("Pout:\t{:>8.2} dBm", final_output_power);
+    println!(
+        "Gain:\t{:>8.2} dB",
+        full_cascade.last().unwrap().cumulative_gain
+    );
 }

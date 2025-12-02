@@ -8,16 +8,14 @@ Here is an example program to use (copy/paste) in `main.rs` of a new `cargo new 
 
 ```rust
 // use gainlineup::cascade::cascade_vector_return_output;
-use gainlineup::cascade::cascade_vector_return_vector;
-use gainlineup::cascade::Block;
-use gainlineup::cascade::Node;
+use gainlineup::cascade_vector_return_vector;
+use gainlineup::Block;
+use gainlineup::SignalNode;
 
 fn main() {
-    println!("Hello, world!");
-
     println!("\n----------------------------\n");
     run();
-    println!("\n----------------------------\n");
+    println!("----------------------------\n");
 }
 
 fn run() {
@@ -26,7 +24,7 @@ fn run() {
     // Add your code logic here
     const INPUT_POWER: f64 = 10.0; // dBm
 
-    let input_node = Node {
+    let input_node = SignalNode {
         name: "Input".to_string(),
         power: INPUT_POWER,
         noise_temperature: 290.0,
@@ -57,7 +55,7 @@ fn run() {
         cable_run_to_spectrum_analyzer.clone(),
     ];
 
-    let full_cascade: Vec<Node> =
+    let full_cascade: Vec<SignalNode> =
         cascade_vector_return_vector(input_node.clone(), blocks.clone());
 
     // println!("{:>8.2} dBm", node.power);`
@@ -97,14 +95,11 @@ fn run() {
         full_cascade.last().unwrap().cumulative_gain
     );
 }
-
 ```
 
 The output is similar to the following:
 
 ```
-Hello, world!
-
 ----------------------------
 
 Run function executed
@@ -133,7 +128,6 @@ Number of Blocks: 3
 Pin:       10.00 dBm
 Pout:      20.00 dBm
 Gain:      10.00 dB
-
 ----------------------------
 ```
 
