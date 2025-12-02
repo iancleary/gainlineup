@@ -46,7 +46,7 @@ fn run() {
     let cable_run_to_spectrum_analyzer: Block = Block {
         name: "Cable Run from DUT to Spectrum Analyzer".to_string(),
         gain: -6.0,
-        noise_figure: 12.0,
+        noise_figure: 6.0,
     };
 
     let blocks = vec![
@@ -132,4 +132,4 @@ Gain:      10.00 dB
 ```
 
 > behind the scenes, this calculates cumulative noise figure, by converting to noise temperature and performing the cascade functions.
-> this could be added to the printouts :)
+> this could be added to the printouts, but it's not currently implemented.
