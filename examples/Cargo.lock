@@ -6,7 +6,15 @@ version = 4
 name = "gainlineup"
 version = "0.4.0"
 dependencies = [
- "rfconversions",
+ "rfconversions 0.3.0",
+]
+
+[[package]]
+name = "gainlineup_example"
+version = "0.1.0"
+dependencies = [
+ "gainlineup",
+ "rfconversions 0.5.0",
 ]
 
 [[package]]
@@ -14,3 +22,9 @@ name = "rfconversions"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fd68be03cacc8509d214f6edd88e1fc9724866b18c77a92779f5bdc2e7b586a"
+
+[[package]]
+name = "rfconversions"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e21a6960f5f68dadef99bd8b50f105cc86b16efecf6dba421175ecdde215277a"

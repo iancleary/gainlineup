@@ -1,0 +1,14 @@
+[package]
+authors = ["Ian Cleary <rust@iancleary.me>"]
+description = "An example Gain Lineup project for RF Modeling"
+documentation = "https://docs.rs/gainlineup"
+edition = "2021"
+homepage = "https://github.com/iancleary/gainlineup"
+license = "MIT"
+name = "gainlineup_example"
+repository = "https://github.com/iancleary/gainlineup/examples"
+version = "0.1.0"
+
+[dependencies]
+gainlineup = { path = "../" }
+rfconversions = "0.5.0"
