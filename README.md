@@ -9,8 +9,8 @@ Here is an example program to use (copy/paste) in `main.rs` of a new `cargo new 
 ```rust
 // use gainlineup::cascade::cascade_vector_return_output;
 use gainlineup::cascade::cascade_vector_return_vector;
-use gainlineup::cascade::GainBlock;
-use gainlineup::cascade::SignalNode;
+use gainlineup::cascade::Block;
+use gainlineup::cascade::Node;
 
 fn main() {
     println!("Hello, world!");
@@ -26,26 +26,26 @@ fn run() {
     // Add your code logic here
     const INPUT_POWER: f64 = 10.0; // dBm
 
-    let input_node = SignalNode {
+    let input_node = Node {
         name: "Input".to_string(),
         power: INPUT_POWER,
         noise_temperature: 290.0,
         cumulative_gain: 0.0, // starting/initial/input node of cascade
     };
 
-    let cable_from_signal_generator = GainBlock {
+    let cable_from_signal_generator = Block {
         name: "Cable Run from Signal Generator to DUT".to_string(),
         gain: -6.0,
         noise_figure: 6.0,
     };
 
-    let line_amp: GainBlock = GainBlock {
+    let line_amp: Block = Block {
         name: "Line Amp at X GHz".to_string(),
         gain: 22.0,
         noise_figure: 6.0,
     };
 
-    let cable_run_to_spectrum_analyzer: GainBlock = GainBlock {
+    let cable_run_to_spectrum_analyzer: Block = Block {
         name: "Cable Run from DUT to Spectrum Analyzer".to_string(),
         gain: -6.0,
         noise_figure: 12.0,
@@ -57,7 +57,7 @@ fn run() {
         cable_run_to_spectrum_analyzer.clone(),
     ];
 
-    let full_cascade: Vec<SignalNode> =
+    let full_cascade: Vec<Node> =
         cascade_vector_return_vector(input_node.clone(), blocks.clone());
 
     // println!("{:>8.2} dBm", node.power);`
