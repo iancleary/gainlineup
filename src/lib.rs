@@ -2,16 +2,23 @@
 #[derive(Clone, Debug)]
 pub struct Block {
     pub name: String,
-    pub gain: f64,         // dB
+    pub gain: f64,                                 // dB
     pub noise_figure: f64, // dB, nf would be ambiguous between noise factor and noise figure
+    pub output_1db_compression_point: Option<f64>, // dBm
 }
 
 impl Block {
-    pub fn new(name: String, gain: f64, noise_figure: f64) -> Block {
+    pub fn new(
+        name: String,
+        gain: f64,
+        noise_figure: f64,
+        output_1db_compression_point: Option<f64>,
+    ) -> Block {
         Block {
             name,
             gain,
             noise_figure,
+            output_1db_compression_point,
         }
     }
 }
@@ -24,25 +31,47 @@ pub struct SignalNode {
     pub cumulative_gain: f64,   // cumulative, dB (set to 0 at start)
 }
 
+// returns output power, handling compression point if present
 pub fn cascade(input_power: f64, block1: Block) -> f64 {
-    input_power + block1.gain
+    let output_power_without_compression = input_power + block1.gain;
+    if let Some(op1db) = block1.output_1db_compression_point {
+        if output_power_without_compression > op1db + 1.0 {
+            return op1db + 1.0;
+        }
+    }
+    output_power_without_compression
 }
 
+// returns output signal node, handling compression point if present
 pub fn cascade_node(signal: SignalNode, block1: Block) -> SignalNode {
     let output_node_name = block1.name + " Output";
     let block_noise_temperature =
         rfconversions::noise::noise_temperature_from_noise_figure(block1.noise_figure);
     let cumulative_gain_linear = rfconversions::power::db_to_linear(signal.cumulative_gain)
         + rfconversions::power::db_to_linear(block1.gain);
+
+    // handle compression point
+    let output_power_without_compression = signal.power + block1.gain;
+    let output_power = if let Some(op1db) = block1.output_1db_compression_point {
+        if output_power_without_compression > op1db + 1.0 {
+            op1db + 1.0
+        } else {
+            output_power_without_compression
+        }
+    } else {
+        output_power_without_compression
+    };
+
     SignalNode {
         name: output_node_name,
-        power: signal.power + block1.gain,
+        power: output_power,
         noise_temperature: signal.noise_temperature
             + block_noise_temperature / cumulative_gain_linear,
         cumulative_gain: signal.cumulative_gain + block1.gain,
     }
 }
 
+// returns final output signal node, handling compression point if present
 pub fn cascade_vector_return_output(input_signal: SignalNode, blocks: Vec<Block>) -> SignalNode {
     let mut cascading_signal = input_signal;
 
@@ -52,6 +81,7 @@ pub fn cascade_vector_return_output(input_signal: SignalNode, blocks: Vec<Block>
     cascading_signal
 }
 
+// returns vector of output signal nodes, handling compression point if present
 pub fn cascade_vector_return_vector(
     input_signal: SignalNode,
     blocks: Vec<Block>,
@@ -76,6 +106,7 @@ mod tests {
             name: "Simple Amplifier".to_string(),
             gain: 10.0,
             noise_figure: 3.0,
+            output_1db_compression_point: None,
         };
         let output_power = super::cascade(input_power, amplifier);
 
@@ -88,7 +119,7 @@ mod tests {
         let name = "Simple Amplifier".to_string();
         let gain = 10.0;
         let noise_figure = 3.0;
-        let amplifier = super::Block::new(name, gain, noise_figure);
+        let amplifier = super::Block::new(name, gain, noise_figure, None);
         let output_power = super::cascade(input_power, amplifier);
 
         assert_eq!(output_power, -20.0);
@@ -107,6 +138,7 @@ mod tests {
             name: "Simple Amplifier".to_string(),
             gain: 10.0,
             noise_figure: 3.0,
+            output_1db_compression_point: None,
         };
         let output_node = super::cascade_node(input_node, amplifier);
 
@@ -132,6 +164,7 @@ mod tests {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
             noise_figure: 3.0,
+            output_1db_compression_point: None,
         };
 
         let output_node = super::cascade_node(input_node, amplifier);
@@ -158,11 +191,13 @@ mod tests {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
             noise_figure: 3.0,
+            output_1db_compression_point: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
             gain: -6.0,
             noise_figure: 6.0,
+            output_1db_compression_point: None,
         };
         let intermediate_node = super::cascade_node(input_node, amplifier);
 
@@ -194,11 +229,13 @@ mod tests {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
             noise_figure: 3.0,
+            output_1db_compression_point: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
             gain: -6.0,
             noise_figure: 6.0,
+            output_1db_compression_point: None,
         };
         let blocks = vec![amplifier, attenuator];
         let output_node = super::cascade_vector_return_output(input_node, blocks);
@@ -227,11 +264,13 @@ mod tests {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
             noise_figure: 3.0,
+            output_1db_compression_point: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
             gain: -6.0,
             noise_figure: 6.0,
+            output_1db_compression_point: None,
         };
         let blocks = vec![amplifier, attenuator];
         let cascade_vector = super::cascade_vector_return_vector(input_node, blocks);

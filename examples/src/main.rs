@@ -26,18 +26,21 @@ fn run() {
         name: "Cable Run from Signal Generator to DUT".to_string(),
         gain: -6.0,
         noise_figure: 6.0,
+        output_1db_compression_point: None,
     };
 
     let line_amp: Block = Block {
         name: "Line Amp at X GHz".to_string(),
         gain: 22.0,
         noise_figure: 6.0,
+        output_1db_compression_point: None,
     };
 
     let cable_run_to_spectrum_analyzer: Block = Block {
         name: "Cable Run from DUT to Spectrum Analyzer".to_string(),
         gain: -6.0,
         noise_figure: 6.0,
+        output_1db_compression_point: None,
     };
 
     let blocks = vec![
