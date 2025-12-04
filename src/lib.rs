@@ -62,12 +62,14 @@ pub fn cascade_node(signal: SignalNode, block1: Block) -> SignalNode {
         output_power_without_compression
     };
 
+    let stage_gain = output_power - signal.power;
+
     SignalNode {
         name: output_node_name,
         power: output_power,
         noise_temperature: signal.noise_temperature
             + block_noise_temperature / cumulative_gain_linear,
-        cumulative_gain: signal.cumulative_gain + block1.gain,
+        cumulative_gain: signal.cumulative_gain + stage_gain,
     }
 }
 
@@ -285,5 +287,47 @@ mod tests {
             output_node.noise_temperature,
         );
         assert_eq!(output_noise_figure, 3.018922107070044);
+    }
+
+    #[test]
+    fn two_part_node_cascade_vector_return_vector_with_compression() {
+        let input_power: f64 = -30.0;
+        let input_node = super::SignalNode {
+            name: "Input".to_string(),
+            power: input_power,
+            noise_temperature: 290.0,
+            cumulative_gain: 0.0, // starting/initial/input node of cascade
+        };
+        let low_noise_amplifier = super::Block {
+            name: "Low Noise Amplifier".to_string(),
+            gain: 30.0,
+            noise_figure: 3.0,
+            output_1db_compression_point: Some(5.0),
+        };
+        let attenuator = super::Block {
+            name: "Attenuator".to_string(),
+            gain: -6.0,
+            noise_figure: 6.0,
+            output_1db_compression_point: None,
+        };
+        let high_power_amplifier = super::Block {
+            name: "High Power Amplifier".to_string(),
+            gain: 30.0,
+            noise_figure: 3.0,
+            output_1db_compression_point: Some(20.0),
+        };
+        let blocks = vec![low_noise_amplifier, attenuator, high_power_amplifier];
+        let cascade_vector = super::cascade_vector_return_vector(input_node, blocks);
+
+        let output_node = cascade_vector.last().unwrap();
+        assert_eq!(output_node.power, 21.0);
+        assert_eq!(output_node.cumulative_gain, 51.0);
+
+        assert_eq!(output_node.name, "High Power Amplifier Output");
+        // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
+        let output_noise_figure = rfconversions::noise::noise_figure_from_noise_temperature(
+            output_node.noise_temperature,
+        );
+        assert_eq!(output_noise_figure, 3.020645644372404);
     }
 }
