@@ -1,4 +1,4 @@
-input_power = -60.0 # touched
+input_power = -60.0
 frequency = 6.0e9
 
 [[blocks]]

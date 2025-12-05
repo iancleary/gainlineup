@@ -7,7 +7,7 @@ fn main() {
     println!("\n----------------------------\n");
 
     let cwd = std::env::current_dir().unwrap();
-    println!("Current Directory: {}", cwd.display());
+    // println!("Current Directory: {}", cwd.display());
 
     let args: Vec<String> = std::env::args().collect();
 
@@ -20,16 +20,16 @@ fn main() {
 
     println!("Config Path: {}", config_path);
 
-    println!("\n----------------------------\n");
+    // println!("\n----------------------------\n");
     let full_path_to_config = cwd.join(config_path);
-    println!("Full Path to Config: {}", full_path_to_config.display());
+    // println!("Full Path to Config: {}", full_path_to_config.display());
 
     match load_config(&full_path_to_config.display().to_string()) {
-        Ok(blocks) => {
-            println!("\n----------------------------\n");
-            let cascade = calculate_gainlineup(0.0, blocks.clone()); // Input power is hardcoded to 0.0 here for now as it's not returned by load_config
-            println!("\n----------------------------\n");
-            print_cascade(cascade, blocks);
+        Ok(config) => {
+            // println!("\n----------------------------\n");
+            let cascade = calculate_gainlineup(config.input_power, config.blocks.clone());
+            // println!("\n----------------------------\n");
+            print_cascade(cascade, config.blocks);
         }
         Err(e) => {
             eprintln!("Error running calculation: {}", e);

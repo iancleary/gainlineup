@@ -119,10 +119,15 @@ pub fn block_from_touchstone_file_path_and_frequency_passive(
 
     let noise_figure = gain.clone() * -1.0;
 
+    let cwd = std::env::current_dir().unwrap();
+    // println!("Current Directory: {}", cwd.display());
+
+    let file_path_remove_cwd = file_path.replace(&cwd.display().to_string(), ".");
+
     Block {
         name: format!(
             "{} at {} GHz",
-            file_path.clone(),
+            file_path_remove_cwd.clone(),
             frequency::hz_to_ghz(frequency_in_hz)
         ),
         gain,
