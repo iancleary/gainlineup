@@ -9,9 +9,10 @@ use rfconversions;
 pub fn generate_html_table(
     cascade: &Vec<SignalNode>,
     blocks: &Vec<Block>,
-    output_path: &Path,
+    output_path_str: &str,
 ) -> Result<(), std::io::Error> {
-    let mut file = File::create(output_path)?;
+    let path = Path::new(output_path_str);
+    let mut file = File::create(path)?;
 
     writeln!(file, "<!DOCTYPE html>")?;
     writeln!(file, "<html>")?;

@@ -4,6 +4,7 @@ use std::process;
 // this cannot be crate::Network because of how Cargo works,
 // since cargo/rust treats lib.rs and main.rs as separate crates
 use crate::cascade_vector_return_vector;
+use crate::file_operations;
 use crate::load_config;
 use crate::Block;
 use crate::SignalNode;
@@ -60,9 +61,9 @@ impl Config {
         let cwd = std::env::current_dir().unwrap();
         // cargo run arg[1], such as cargo run tests/simple_config.toml
         // gainlineup arg[1], such as gainlineup tests/simple_config.toml
-        let file_argument = args[1].clone();
-        println!("Config Path: {}", file_argument);
-        let full_path_to_config = cwd.join(file_argument);
+        let file_path = args[1].clone();
+        println!("Config Path: {}", file_path);
+        let full_path_to_config = cwd.join(file_path);
         println!("Full Path: {}", full_path_to_config.display());
 
         match load_config(&full_path_to_config.display().to_string()) {
@@ -72,17 +73,53 @@ impl Config {
                 // println!("\n----------------------------\n");
                 print_cascade(cascade.clone(), config.blocks.clone());
 
-                let path = std::path::Path::new(&full_path_to_config);
-                let parent = path.parent().unwrap_or(std::path::Path::new("."));
-                let output_filename = parent.join(format!(
-                    "{}.html",
-                    path.file_stem().unwrap().to_str().unwrap()
-                ));
-                println!("Generating HTML table at: {}", output_filename.display());
+                let file_path = full_path_to_config.display().to_string();
 
-                match crate::plot::generate_html_table(&cascade, &config.blocks, &output_filename) {
+                let file_path_config: file_operations::FilePathConfig =
+                    file_operations::get_file_path_config(&file_path);
+
+                // absolute path, append .html, remove woindows UNC Prefix if present
+                // relative path with separators, just append .hmtl
+                // bare_filename, prepend ./ and append .html
+                // absolute path, append .html, remove woindows UNC Prefix if present
+                // relative path with separators, just append .hmtl
+                // bare_filename, prepend ./ and append .html
+                let output_html_path = if file_path_config.absolute_path {
+                    let mut file_path_html = format!("{}.html", &file_path);
+                    // Remove the UNC prefix on Windows if present
+                    if cfg!(target_os = "windows") && file_path_html.starts_with(r"\\?\") {
+                        file_path_html = file_path_html[4..].to_string();
+                    }
+                    file_path_html
+                } else if file_path_config.relative_path_with_separators {
+                    format!("{}.html", &file_path)
+                } else if file_path_config.bare_filename {
+                    format!("./{}.html", &file_path)
+                } else {
+                    panic!(
+                        "file_path_config must have one true value: {:?}",
+                        file_path_config
+                    );
+                };
+
+                // replace basename.toml.html with basename.html, if it ends with .toml.html
+                let output_html_path = if output_html_path.ends_with(".toml.html") {
+                    output_html_path.replace(".toml.html", ".html")
+                } else {
+                    output_html_path
+                };
+
+                let output_html_path_str = output_html_path.as_str();
+
+                println!("Generating HTML table at: {}", output_html_path);
+
+                match crate::plot::generate_html_table(
+                    &cascade,
+                    &config.blocks,
+                    output_html_path_str,
+                ) {
                     Ok(_) => {
-                        crate::open::plot(output_filename.display().to_string());
+                        crate::open::plot(output_html_path.clone());
                     }
                     Err(e) => {
                         eprintln!("Error generating HTML table: {}", e);
