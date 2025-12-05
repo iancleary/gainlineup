@@ -1,7 +1,13 @@
-pub mod file;
+use std::fs;
+use std::path::Path;
 
 use rfconversions::frequency;
 use touchstone::Network;
+
+use serde::Deserialize;
+use toml;
+
+pub mod cli;
 
 // the input to our `create_user` handler
 #[derive(Clone, Debug)]
@@ -34,6 +40,154 @@ pub struct SignalNode {
     pub power: f64,             // dBm
     pub noise_temperature: f64, // cumulative, dB
     pub cumulative_gain: f64,   // cumulative, dB (set to 0 at start)
+}
+
+// the structure of the toml files
+//
+// Config is the top level toml file
+//
+#[derive(Debug)]
+pub struct Config {
+    pub input_power: f64,
+    pub frequency: f64,
+    pub blocks: Vec<Block>,
+}
+
+#[derive(Deserialize, Debug)]
+struct IncludedConfig {
+    blocks: Vec<BlockConfig>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum BlockConfig {
+    Explicit {
+        name: String,
+        gain: f64,
+        noise_figure: f64,
+        output_1db_compression_point: Option<f64>,
+    },
+    Touchstone {
+        file_path: String,
+    },
+    Include {
+        path: String,
+    },
+}
+
+pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
+    // println!("\n----------------------------\n");
+    // println!("Loading Config: {}", path);
+    let config_content = fs::read_to_string(path)?;
+    // println!("Config Content: {}", config_content);
+
+    // We need an intermediate struct to parse the TOML because Config now holds Vec<Block>
+    // but the TOML contains BlockConfigs
+    #[derive(Deserialize)]
+    struct IntermediateConfig {
+        input_power: f64,
+        frequency: f64,
+        blocks: Vec<BlockConfig>,
+    }
+
+    let intermediate_config: IntermediateConfig = toml::from_str(&config_content)?;
+    // println!("Config: {:#?}", config);
+
+    let mut blocks = Vec::new();
+    let config_path = Path::new(path);
+    let base_dir = config_path.parent().unwrap_or_else(|| Path::new("."));
+
+    load_blocks_recursive(
+        intermediate_config.blocks,
+        intermediate_config.frequency,
+        &mut blocks,
+        base_dir,
+    )?;
+
+    // println!("\n----------------------------\n");
+
+    Ok(Config {
+        input_power: intermediate_config.input_power,
+        frequency: intermediate_config.frequency,
+        blocks,
+    })
+}
+
+fn load_blocks_recursive(
+    block_configs: Vec<BlockConfig>,
+    frequency: f64,
+    blocks: &mut Vec<Block>,
+    base_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for block_config in block_configs {
+        match block_config {
+            BlockConfig::Explicit {
+                name,
+                gain,
+                noise_figure,
+                output_1db_compression_point,
+            } => {
+                blocks.push(Block {
+                    name,
+                    gain,
+                    noise_figure,
+                    output_1db_compression_point,
+                });
+            }
+            BlockConfig::Touchstone { file_path } => {
+                // Touchstone files might also be relative to the config file
+                let full_path = base_dir.join(file_path);
+                blocks.push(touchstone_file_path_and_frequency_to_block(
+                    full_path.to_string_lossy().to_string(),
+                    frequency,
+                ));
+            }
+            BlockConfig::Include { path } => {
+                let included_path = base_dir.join(&path);
+                // println!("Loading Included Config: {}", included_path.display());
+                let content = fs::read_to_string(&included_path)?;
+                let included: IncludedConfig = toml::from_str(&content)?;
+
+                let new_base_dir = included_path.parent().unwrap_or_else(|| Path::new("."));
+                load_blocks_recursive(included.blocks, frequency, blocks, new_base_dir)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn touchstone_file_path_and_frequency_to_block(
+    file_path: String,
+    frequency_in_hz: f64,
+) -> Block {
+    let s2p = Network::new(file_path.clone());
+
+    let gain_vector = s2p.s_db(2, 1); // uses 1-based indexing
+
+    let gain = gain_vector
+        .iter()
+        .find(|frequency_db| frequency_db.frequency == frequency_in_hz)
+        .unwrap()
+        .s_db
+        .decibel();
+
+    let noise_figure = gain.clone() * -1.0;
+
+    let cwd = std::env::current_dir().unwrap();
+    // println!("Current Directory: {}", cwd.display());
+
+    let file_path_remove_cwd = file_path.replace(&cwd.display().to_string(), ".");
+
+    Block {
+        name: format!(
+            "{} at {} GHz",
+            file_path_remove_cwd.clone(),
+            frequency::hz_to_ghz(frequency_in_hz)
+        ),
+        gain,
+        noise_figure,
+        output_1db_compression_point: None,
+    }
 }
 
 // returns output power, handling compression point if present
@@ -102,82 +256,13 @@ pub fn cascade_vector_return_vector(
     node_vector
 }
 
-pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
-    println!("");
-    for (i, node) in cascade.iter().enumerate() {
-        println!("\nNode {}: {}", i, node.name);
-
-        if i == 0 {
-            // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
-            // with two digits after the decimal (hundredths place)
-            println!("Input Level {:>8.2} dBm", node.power);
-        } else {
-            // let block_gain = node.power - cascade[i - 1].power;
-            let block_gain = blocks[i - 1].gain;
-            let input_power = node.power - block_gain;
-
-            // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
-            // with two digits after the decimal (hundredths place)
-            println!("Input Power\t\t{:>8.2} dBm", input_power);
-            println!("Block Gain:\t\t{:>8.2} dB", block_gain);
-            println!("Block NF:\t\t{:>8.2} dB", blocks[i - 1].noise_figure);
-            println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain);
-            println!(
-                "Cumulative Noise Figure:{:>8.2} dB",
-                rfconversions::noise::noise_figure_from_noise_temperature(node.noise_temperature)
-            );
-            println!("Output Power\t\t{:>8.2} dBm", node.power);
-        }
-    }
-    println!();
-    println!("Final Cascade Summary:");
-    println!("----------------------");
-    println!("Number of Blocks: {}", cascade.len() - 1);
-    println!("Pin:\t{:>8.2} dBm", cascade[0].power);
-
-    let final_output_power = cascade.last().unwrap().power;
-    println!("Pout:\t{:>8.2} dBm", final_output_power);
-    println!("Gain:\t{:>8.2} dB", cascade.last().unwrap().cumulative_gain);
-}
-
-pub fn block_from_touchstone_file_path_and_frequency_passive(
-    file_path: String,
-    frequency_in_hz: f64,
-) -> Block {
-    let s2p = Network::new(file_path.clone());
-
-    let gain_vector = s2p.s_db(2, 1); // uses 1-based indexing
-
-    let gain = gain_vector
-        .iter()
-        .find(|frequency_db| frequency_db.frequency == frequency_in_hz)
-        .unwrap()
-        .s_db
-        .decibel();
-
-    let noise_figure = gain.clone() * -1.0;
-
-    let cwd = std::env::current_dir().unwrap();
-    // println!("Current Directory: {}", cwd.display());
-
-    let file_path_remove_cwd = file_path.replace(&cwd.display().to_string(), ".");
-
-    Block {
-        name: format!(
-            "{} at {} GHz",
-            file_path_remove_cwd.clone(),
-            frequency::hz_to_ghz(frequency_in_hz)
-        ),
-        gain,
-        noise_figure,
-        output_1db_compression_point: None,
-    }
-}
-
 // This module contains tests for the cascade function and the Node struct
 
 #[cfg(test)]
 mod tests {
+
+    use super::*;
+
     #[test]
     fn one_part() {
         let input_power: f64 = -30.0;
@@ -406,5 +491,84 @@ mod tests {
             output_node.noise_temperature,
         );
         assert_eq!(output_noise_figure, 3.020645644372404);
+    }
+
+    use std::fs;
+    use std::path::Path;
+    use toml;
+
+    use crate::{cascade_vector_return_vector, SignalNode};
+
+    // Helper to parse config for tests
+    fn parse_test_config(content: &str) -> Result<Config, Box<dyn std::error::Error>> {
+        #[derive(Deserialize)]
+        struct IntermediateConfig {
+            input_power: f64,
+            frequency: f64,
+            blocks: Vec<BlockConfig>,
+        }
+        let intermediate_config: IntermediateConfig = toml::from_str(content)?;
+        let mut blocks = Vec::new();
+        // For tests, we assume base_dir is current dir or not important for explicit blocks
+        let base_dir = Path::new(".");
+        load_blocks_recursive(
+            intermediate_config.blocks,
+            intermediate_config.frequency,
+            &mut blocks,
+            base_dir,
+        )?;
+        Ok(Config {
+            input_power: intermediate_config.input_power,
+            frequency: intermediate_config.frequency,
+            blocks,
+        })
+    }
+
+    #[test]
+    fn test_load_simple_config() {
+        let cwd = std::env::current_dir().unwrap();
+        let config_path = std::env::args()
+            .nth(1)
+            .unwrap_or_else(|| "tests/simple_config.toml".to_string());
+        let full_path_to_config = cwd.join(config_path);
+        let config_content = fs::read_to_string(full_path_to_config.display().to_string()).unwrap();
+        let config = parse_test_config(&config_content).unwrap();
+        assert_eq!(config.input_power, -70.0);
+        assert_eq!(config.frequency, 6.0e9);
+        assert_eq!(config.blocks.len(), 3);
+    }
+
+    #[test]
+    fn test_load_include_config() {
+        let cwd = std::env::current_dir().unwrap();
+        let config_path = std::env::args()
+            .nth(1)
+            .unwrap_or_else(|| "tests/include_directive/config.toml".to_string());
+        let full_path_to_config = cwd.join(config_path);
+        // We need to use load_config here to handle includes correctly relative to file path
+        let config = load_config(&full_path_to_config.display().to_string()).unwrap();
+        assert_eq!(config.blocks.len(), 6);
+    }
+
+    #[test]
+    fn test_compression() {
+        let cwd = std::env::current_dir().unwrap();
+        let config_path = std::env::args()
+            .nth(1)
+            .unwrap_or_else(|| "tests/compression/compression_test.toml".to_string());
+        let full_path_to_config = cwd.join(config_path);
+        // We need to use load_config here to handle includes correctly relative to file path
+        let config = load_config(&full_path_to_config.display().to_string()).unwrap();
+        assert_eq!(config.blocks.len(), 3);
+
+        let input_node = SignalNode {
+            name: "Input".to_string(),
+            power: config.input_power,
+            noise_temperature: 290.0,
+            cumulative_gain: 0.0,
+        };
+        let cascade = cascade_vector_return_vector(input_node, config.blocks);
+
+        assert_eq!(cascade.last().unwrap().power, 21.0);
     }
 }
