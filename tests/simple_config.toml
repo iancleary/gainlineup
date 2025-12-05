@@ -1,0 +1,20 @@
+input_power = -70.0
+frequency = 6.0e9
+
+[[blocks]]
+type = "explicit"
+name = "Low Noise Amplifier"
+gain = 20.0
+noise_figure = 3.0
+
+[[blocks]]
+type = "explicit"
+name = "Mixer"
+gain = 10.0
+noise_figure = 6.0
+
+[[blocks]]
+type = "explicit"
+name = "IF Amplifier"
+gain = 15.0
+noise_figure = 5.0

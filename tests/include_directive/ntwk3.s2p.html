@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Touchstone Viewer</title>
+    <script src="./js/tailwindcss-3.4.17.js"></script>
+    <!-- Plotly.js CDN -->
+    <script src="./js/plotly-3.3.0.min.js"></script>
+    <style>
+        /* Smooth transition for dimensions and transform */
+        .grid-item {
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            flex-direction: column;
+            height: 350px;
+            /* Base height for collapsed state */
+        }
+
+        /* Expanded State Logic */
+        .grid-item.expanded {
+            height: 600px;
+            /* Expanded height */
+            border-color: #3b82f6;
+            /* Blue border to highlight active */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .expanded .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Ensure chart containers take full height */
+        .chart-container {
+            width: 100%;
+            height: 100%;
+            flex-grow: 1;
+        }
+
+        .action-btn {
+            opacity: 0.8;
+            transition: opacity 0.2s, background-color 0.2s, transform 0.1s;
+            position: relative;
+        }
+
+        .action-btn:hover {
+            opacity: 1;
+            background-color: #f3f4f6;
+            transform: translateY(-1px);
+        }
+
+        /* Custom Tooltip Style */
+        #custom-tooltip {
+            transition: opacity 0.15s ease;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Network Performance</h1>
+        <p class="text-gray-600">Click the hover icon (+) to cycle through nearest point, X-axis lock, Y-axis lock, and
+            no hover modes.</p>
+    </div>
+
+    <!-- Main Grid Container -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-6xl mx-auto">
+
+        <!-- Item 1 -->
+        <div id="card-s11"
+            class="grid-item relative bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200 p-4 col-span-1">
+            <div class="flex justify-between items-start mb-2">
+                <h2 class="text-lg font-bold text-gray-800 z-10 pointer-events-none truncate mr-2">S11 (Input Return
+                    Loss)</h2>
+                <div class="flex items-center space-x-1 z-20 flex-shrink-0">
+                    <!-- Reset Zoom -->
+                    <button onclick="resetZoom('plot-s11')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Reset Zoom">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                    </button>
+                    <!-- Zoom In -->
+                    <button onclick="zoomIn('plot-s11')" class="action-btn p-2 rounded-full" data-tooltip="Zoom In">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
+                        </svg>
+                    </button>
+                    <!-- Zoom Out -->
+                    <button onclick="zoomOut('plot-s11')" class="action-btn p-2 rounded-full" data-tooltip="Zoom Out">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"></path>
+                        </svg>
+                    </button>
+                    <!-- Toggle Hover -->
+                    <button id="hover-toggle-plot-s11" onclick="toggleHoverMode('plot-s11')"
+                        class="action-btn p-2 rounded-full" data-tooltip="Toggle Hover Mode: Nearest Point">
+                        <svg id="hover-icon-plot-s11" class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <!-- Default icon: Crosshair (Nearest) -->
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 12h16M12 4v16" />
+                        </svg>
+                    </button>
+                    <!-- CSV Button -->
+                    <button onclick="downloadCSV('plot-s11', 's11_data')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Download CSV">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                            </path>
+                        </svg>
+                    </button>
+                    <!-- Image Button -->
+                    <button onclick="downloadImage('plot-s11', 's11_plot')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Download Image (PNG)">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </button>
+                    <!-- Expand Button -->
+                    <button onclick="toggleExpand('card-s11')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Expand View">
+                        <svg class="toggle-icon w-5 h-5 text-gray-700" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="plot-s11" class="chart-container"></div>
+        </div>
+
+        <!-- Item 2 -->
+        <div id="card-s12"
+            class="grid-item relative bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200 p-4 col-span-1">
+            <div class="flex justify-between items-start mb-2">
+                <h2 class="text-lg font-bold text-gray-800 z-10 pointer-events-none truncate mr-2">S12 (Reverse
+                    Isolation)</h2>
+                <div class="flex items-center space-x-1 z-20 flex-shrink-0">
+                    <button onclick="resetZoom('plot-s12')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Reset Zoom">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                    </button>
+                    <button onclick="zoomIn('plot-s12')" class="action-btn p-2 rounded-full" data-tooltip="Zoom In">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
+                        </svg>
+                    </button>
+                    <button onclick="zoomOut('plot-s12')" class="action-btn p-2 rounded-full" data-tooltip="Zoom Out">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"></path>
+                        </svg>
+                    </button>
+                    <button id="hover-toggle-plot-s12" onclick="toggleHoverMode('plot-s12')"
+                        class="action-btn p-2 rounded-full" data-tooltip="Toggle Hover Mode: Nearest Point">
+                        <svg id="hover-icon-plot-s12" class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 12h16M12 4v16" />
+                        </svg>
+                    </button>
+                    <button onclick="downloadCSV('plot-s12', 's12_data')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Download CSV">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                            </path>
+                        </svg>
+                    </button>
+                    <button onclick="downloadImage('plot-s12', 's12_plot')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Download Image (PNG)">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </button>
+                    <button onclick="toggleExpand('card-s12')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Expand View">
+                        <svg class="toggle-icon w-5 h-5 text-gray-700" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="plot-s12" class="chart-container"></div>
+        </div>
+
+        <!-- Item 3 -->
+        <div id="card-s21"
+            class="grid-item relative bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200 p-4 col-span-1">
+            <div class="flex justify-between items-start mb-2">
+                <h2 class="text-lg font-bold text-gray-800 z-10 pointer-events-none truncate mr-2">S21 (Insertion Loss)
+                </h2>
+                <div class="flex items-center space-x-1 z-20 flex-shrink-0">
+                    <button onclick="resetZoom('plot-s21')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Reset Zoom">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                    </button>
+                    <button onclick="zoomIn('plot-s21')" class="action-btn p-2 rounded-full" data-tooltip="Zoom In">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
+                        </svg>
+                    </button>
+                    <button onclick="zoomOut('plot-s21')" class="action-btn p-2 rounded-full" data-tooltip="Zoom Out">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"></path>
+                        </svg>
+                    </button>
+                    <button id="hover-toggle-plot-s21" onclick="toggleHoverMode('plot-s21')"
+                        class="action-btn p-2 rounded-full" data-tooltip="Toggle Hover Mode: Nearest Point">
+                        <svg id="hover-icon-plot-s21" class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 12h16M12 4v16" />
+                        </svg>
+                    </button>
+                    <button onclick="downloadCSV('plot-s21', 's21_data')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Download CSV">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                            </path>
+                        </svg>
+                    </button>
+                    <button onclick="downloadImage('plot-s21', 's21_plot')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Download Image (PNG)">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </button>
+                    <button onclick="toggleExpand('card-s21')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Expand View">
+                        <svg class="toggle-icon w-5 h-5 text-gray-700" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="plot-s21" class="chart-container"></div>
+        </div>
+
+        <!-- Item 4 -->
+        <div id="card-s22"
+            class="grid-item relative bg-white rounded-2xl shadow-md overflow-hidden border border-gray-200 p-4 col-span-1">
+            <div class="flex justify-between items-start mb-2">
+                <h2 class="text-lg font-bold text-gray-800 z-10 pointer-events-none truncate mr-2">S22 (Output Return
+                    Loss)</h2>
+                <div class="flex items-center space-x-1 z-20 flex-shrink-0">
+                    <button onclick="resetZoom('plot-s22')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Reset Zoom">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                    </button>
+                    <button onclick="zoomIn('plot-s22')" class="action-btn p-2 rounded-full" data-tooltip="Zoom In">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"></path>
+                        </svg>
+                    </button>
+                    <button onclick="zoomOut('plot-s22')" class="action-btn p-2 rounded-full" data-tooltip="Zoom Out">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"></path>
+                        </svg>
+                    </button>
+                    <button id="hover-toggle-plot-s22" onclick="toggleHoverMode('plot-s22')"
+                        class="action-btn p-2 rounded-full" data-tooltip="Toggle Hover Mode: Nearest Point">
+                        <svg id="hover-icon-plot-s22" class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 12h16M12 4v16" />
+                        </svg>
+                    </button>
+                    <button onclick="downloadCSV('plot-s22', 's22_data')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Download CSV">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                            </path>
+                        </svg>
+                    </button>
+                    <button onclick="downloadImage('plot-s22', 's22_plot')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Download Image (PNG)">
+                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </button>
+                    <button onclick="toggleExpand('card-s22')" class="action-btn p-2 rounded-full"
+                        data-tooltip="Expand View">
+                        <svg class="toggle-icon w-5 h-5 text-gray-700" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="plot-s22" class="chart-container"></div>
+        </div>
+
+    </div>
+
+    <script>
+
+        // --- Data Placeholders ---
+        const networkNames = ['files/ntwk3.s2p'];
+        const freqData = [[1000000000, 1100000000, 1200000000, 1300000000, 1400000000, 1500000000, 1600000000, 1700000000, 1800000000, 1900000000, 2000000000, 2100000000, 2200000000, 2300000000, 2400000000, 2500000000, 2600000000, 2700000000, 2800000000, 2900000000, 3000000000, 3100000000, 3200000000, 3300000000, 3400000000, 3500000000, 3600000000, 3700000000, 3800000000, 3900000000, 4000000000, 4099999999.9999995, 4200000000, 4300000000, 4400000000, 4500000000, 4600000000, 4700000000, 4800000000, 4900000000, 5000000000, 5100000000, 5200000000, 5300000000, 5400000000, 5500000000, 5600000000, 5700000000, 5800000000, 5900000000, 6000000000, 6100000000, 6200000000, 6300000000, 6400000000, 6500000000, 6600000000, 6700000000, 6800000000, 6900000000, 7000000000, 7100000000, 7200000000, 7300000000, 7400000000, 7500000000, 7600000000, 7700000000, 7800000000, 7900000000, 8000000000, 8100000000, 8199999999.999999, 8300000000.000001, 8400000000, 8500000000, 8600000000, 8700000000, 8800000000, 8900000000, 9000000000, 9100000000, 9200000000, 9300000000, 9400000000, 9500000000, 9600000000, 9700000000, 9800000000, 9900000000, 10000000000]]; // Array of arrays
+        const s11Data = [[-14.202267306799307, -13.565353744568052, -12.968556519046835, -12.409258741961713, -11.884715513308855, -11.392243310540845, -10.929312285265983, -10.493584939019993, -10.082926089271876, -9.69539703659756, -9.329243080204625, -8.98287727560313, -8.654864344298641, -8.343904422115076, -8.048818524434418, -7.7685350037570355, -7.502077799774196, -7.248555798073241, -7.007153497546019, -6.7771229969768, -6.5577767917384735, -6.348481451322792, -6.148652322485967, -5.957748462748088, -5.77526860568036, -5.600747345192461, -5.433751801560705, -5.273878775614486, -5.120752083219491, -4.974020341590467, -4.833354753254933, -4.698447384791596, -4.56900955256399, -4.44477013279214, -4.3254744395186915, -4.210882848522317, -4.100769792436052, -3.99492274222676, -3.8931412405095784, -3.795236127156935, -3.7010287527221686, -3.610350304642853, -3.5230411434306963, -3.438950173239128, -3.35793440912088, -3.2798583672113955, -3.2045936441379244, -3.1320184910200584, -3.062017399755602, -2.994480725828839, -2.929304383058642, -2.86638947368834, -2.805642032073728, -2.7469726876458065, -2.6902964822209925, -2.6355325313916307, -2.582603912453667, -2.5314373280386784, -2.4819630075571997, -2.434114450260752, -2.387828283186474, -2.3430440846405265, -2.2997042139666473, -2.2577537428782852, -2.2171401662061414, -2.177813417603588, -2.139725701323695, -2.10283131885645, -2.0670866588442403, -2.0324500136263177, -1.9988815205534447, -1.9663430593542974, -1.9347981987949459, -1.9042120278351833, -1.874551216694106, -1.8457837751533144, -1.8178791606389544, -1.7908080543285188, -1.7645424139192505, -1.7390553446682009, -1.7143210868424754, -1.6903149664646302, -1.6670132871043792, -1.6443933248449376, -1.6224333214094713, -1.601112354135087, -1.580410391507079, -1.5603081600927733, -1.5407871745879733, -1.521829672841781, -1.5034186172598254]];
+        const s21Data = [[-0.9613313855320177, -0.9887805569984605, -1.018619520872691, -1.0507909411569543, -1.085234017523064, -1.1218848894102444, -1.160676902303805, -1.2015410189627043, -1.2444060762091957, -1.2891992121852551, -1.3358460993267722, -1.3842713409942142, -1.4343987410101322, -1.4861515789503006, -1.539452927957787, -1.5942259163499628, -1.6503939529264562, -1.7078809598631814, -1.7666115952553254, -1.8265114534942835, -1.8875071957056915, -1.9495267729465908, -2.01249950331699, -2.0763562312469737, -2.1410294215042316, -2.206453260691121, -2.2725636819044412, -2.3392985051807407, -2.4065974223641042, -2.474402042563959, -2.54265596688722, -2.61130469122169, -2.680295740450629, -2.7495785746909056, -2.8191046027261804, -2.888827186778003, -2.958701550971798, -3.0286848234465107, -3.098735965201702, -3.1688157470223723, -3.238886688247868, -3.308912992841764, -3.378860618899269, -3.448697014933444, -3.5183913153457365, -3.5879140720651668, -3.657237367688513, -3.7263346830393678, -3.795180823251347, -3.8637519513161616, -3.9320254608963694, -3.99997993699165, -4.067595163681573, -4.1348519825439025, -4.201732330755998, -4.268219160525404, -4.334296361648478, -4.39994877053371, -4.465162130958608, -4.529922974255801, -4.5942186681394155, -4.6580373348750745, -4.721367835056783, -4.784199668862083, -4.846523060197287, -4.908328810176899, -4.969608356870743, -5.030353628371433, -5.090557164900047, -5.150211948807407, -5.20931147463298, -5.267849677250328, -5.325820960245391, -5.383220084164877, -5.4400422008977465, -5.4962828634190375, -5.551937954685156, -5.607003676269393, -5.661476547030389, -5.715353386240317, -5.768631270647592, -5.821307593783773, -5.873379930903646, -5.924846138736445, -5.97570428422047, -6.025952673381699, -6.075589788659935, -6.124614297767598, -6.173025085428616, -6.2208211825011634, -6.268001829186268]];
+        const s12Data = [[-0.9613313855320177, -0.9887805569984605, -1.018619520872691, -1.0507909411569543, -1.085234017523064, -1.1218848894102444, -1.160676902303805, -1.2015410189627043, -1.2444060762091957, -1.2891992121852551, -1.3358460993267722, -1.3842713409942142, -1.4343987410101322, -1.4861515789503006, -1.539452927957787, -1.5942259163499628, -1.6503939529264562, -1.7078809598631814, -1.7666115952553254, -1.8265114534942835, -1.8875071957056915, -1.9495267729465908, -2.01249950331699, -2.0763562312469737, -2.1410294215042316, -2.206453260691121, -2.2725636819044412, -2.3392985051807407, -2.4065974223641042, -2.474402042563959, -2.54265596688722, -2.61130469122169, -2.680295740450629, -2.7495785746909056, -2.8191046027261804, -2.888827186778003, -2.958701550971798, -3.0286848234465107, -3.098735965201702, -3.1688157470223723, -3.238886688247868, -3.308912992841764, -3.378860618899269, -3.448697014933444, -3.5183913153457365, -3.5879140720651668, -3.657237367688513, -3.7263346830393678, -3.795180823251347, -3.8637519513161616, -3.9320254608963694, -3.99997993699165, -4.067595163681573, -4.1348519825439025, -4.201732330755998, -4.268219160525404, -4.334296361648478, -4.39994877053371, -4.465162130958608, -4.529922974255801, -4.5942186681394155, -4.6580373348750745, -4.721367835056783, -4.784199668862083, -4.846523060197287, -4.908328810176899, -4.969608356870743, -5.030353628371433, -5.090557164900047, -5.150211948807407, -5.20931147463298, -5.267849677250328, -5.325820960245391, -5.383220084164877, -5.4400422008977465, -5.4962828634190375, -5.551937954685156, -5.607003676269393, -5.661476547030389, -5.715353386240317, -5.768631270647592, -5.821307593783773, -5.873379930903646, -5.924846138736445, -5.97570428422047, -6.025952673381699, -6.075589788659935, -6.124614297767598, -6.173025085428616, -6.2208211825011634, -6.268001829186268]];
+        const s22Data = [[-17.020918305595288, -16.536480144206728, -16.067469583919173, -15.615640252263434, -15.181865602938684, -14.766414388429798, -14.369149274491066, -13.989667413468077, -13.62739879536575, -13.281674539412949, -12.951773576461514, -12.636954399649046, -12.336476193692786, -12.049612594910304, -11.775660583844873, -11.513945637122598, -11.263824533616031, -11.024686522897431, -10.795953563585925, -10.577079645557736, -10.367549729520542, -10.166878419274335, -9.974608511367396, -9.790309415143867, -9.613575701937423, -9.444025557841663, -9.28129914331042, -9.125057558493264, -8.974981189333048, -8.830768676028498, -8.692135730258459, -8.558813922342827, -8.430549807091813, -8.307104003673073, -8.188250203568327, -8.073774386850626, -7.963474184170451, -7.85715801786782, -7.7546445511423965, -7.655762052339895, -7.560347762176186, -7.468247471493335, -7.379315003685315, -7.293411644336267, -7.210405887723014, -7.130172845584141, -7.052594036056494, -6.977556950097107, -6.904954697581624, -6.834685735477159, -6.766653622669969, -6.700766642679103, -6.636937594129851, -6.575083624963868, -6.515125862540367, -6.4569893008372405, -6.400602581884984, -6.345897837842504, -6.292810406542859, -6.241278747693163, -6.191244292726932, -6.142651295745344, -6.095446641137732, -6.049579688626956, -6.0050023139234945, -5.961668578369027, -5.919534776997203, -5.878559230073137, -5.838702262557516, -5.799926048679765, -5.762194554701731, -5.725473435688533, -5.689730023040921, -5.65493311724992, -5.621053003152917, -5.588061461248386, -5.555931514077276, -5.524637497588525, -5.494155008934124, -5.464460788081799, -5.4355326982783385, -5.4073496657586295, -5.379891682567961, -5.353139696372623, -5.327075558213946, -5.301682097269445, -5.276942977590322, -5.2528426709373655, -5.2293665034597385, -5.206500505978195, -5.1842315018138905]];
+
+        // --- Tooltip Logic (Custom) ---
+        const tooltip = document.createElement('div');
+        tooltip.id = 'custom-tooltip';
+        tooltip.className = 'fixed bg-gray-800 text-white text-xs rounded py-1 px-2 z-50 pointer-events-none hidden shadow-lg whitespace-nowrap';
+        document.body.appendChild(tooltip);
+
+        document.addEventListener('mouseover', e => {
+            const target = e.target.closest('[data-tooltip]');
+            if (target) {
+                tooltip.textContent = target.dataset.tooltip;
+                tooltip.classList.remove('hidden');
+
+                const rect = target.getBoundingClientRect();
+
+                // Wait for text to render to calculate width
+                requestAnimationFrame(() => {
+                    let left = rect.left + rect.width / 2 - tooltip.offsetWidth / 2;
+                    let top = rect.bottom + 8;
+
+                    // Edge detection
+                    if (left + tooltip.offsetWidth > window.innerWidth - 10) {
+                        left = window.innerWidth - tooltip.offsetWidth - 10;
+                    }
+                    if (left < 10) left = 10;
+
+                    tooltip.style.left = `${left}px`;
+                    tooltip.style.top = `${top}px`;
+                });
+            }
+        });
+
+        document.addEventListener('mouseout', e => {
+            if (e.target.closest('[data-tooltip]')) {
+                tooltip.classList.add('hidden');
+            }
+        });
+
+        // --- Hover Mode Management ---
+        const hoverModeMap = {
+            'plot-s11': 'closest',
+            'plot-s12': 'closest',
+            'plot-s21': 'closest',
+            'plot-s22': 'closest'
+        };
+
+        const HOVER_CYCLES = ['closest', 'x', 'y', false]; // false means disabled hover
+
+        /**
+         * Renders the appropriate SVG icon and updates the tooltip text.
+         * @param {string} plotId The ID of the plot (e.g., 'plot-s11')
+         * @param {string|false} mode The current Plotly hover mode or false
+         */
+        function updateHoverIcon(plotId, mode) {
+            const iconContainer = document.getElementById(`hover-icon-${plotId}`);
+            const button = document.getElementById(`hover-toggle-${plotId}`);
+            let svgContent = '';
+            let tooltipText = '';
+
+            // Note: Setting stroke/fill/viewBox in the SVG tag itself
+            switch (mode) {
+                case 'closest':
+                    tooltipText = 'Toggle Hover Mode: Nearest Point';
+                    // Crosshair / Four-way arrow
+                    svgContent = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12h16M12 4v16" />';
+                    break;
+                case 'x':
+                    tooltipText = 'Toggle Hover Mode: X-Axis Lock';
+                    // Horizontal Arrows (Move along X)
+                    svgContent = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12H3M17 8l4 4-4 4M7 8l-4 4 4 4" />';
+                    break;
+                case 'y':
+                    tooltipText = 'Toggle Hover Mode: Y-Axis Lock';
+                    // Vertical Arrows (Move along Y)
+                    svgContent = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21V3M8 17l4 4 4-4M8 7l4-4 4 4" />';
+                    break;
+                case false:
+                default:
+                    tooltipText = 'Toggle Hover Mode: Disabled';
+                    // Eye off (Disabled) - Updated path to avoid clipping
+                    svgContent = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />';
+                    break;
+            }
+
+            iconContainer.innerHTML = svgContent;
+            button.dataset.tooltip = tooltipText;
+
+            // Re-render Plotly with the new mode
+            const plotlyMode = mode === false ? false : mode; // Plotly uses 'false' or 'closest', 'x', 'y'
+            Plotly.relayout(plotId, { hovermode: plotlyMode });
+        }
+
+
+        function toggleHoverMode(plotId) {
+            const currentMode = hoverModeMap[plotId] === false ? 'off' : hoverModeMap[plotId];
+            const currentIndex = HOVER_CYCLES.indexOf(currentMode);
+            const nextIndex = (currentIndex + 1) % HOVER_CYCLES.length;
+            const newMode = HOVER_CYCLES[nextIndex];
+
+            hoverModeMap[plotId] = newMode;
+            updateHoverIcon(plotId, newMode);
+        }
+
+        // --- Plotly Chart Generation ---
+        const commonLayout = {
+            margin: { t: 40, r: 10, b: 40, l: 60 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { family: 'Inter, sans-serif' },
+            showlegend: true,
+            legend: {
+                x: 1, xanchor: 'right', y: 1, bgcolor: 'rgba(255,255,255,0.5)',
+                // title: {
+                //     text: "Legend Title"
+                // }
+            },
+            xaxis: {
+                title: {
+                    text: 'Frequency (GHz)'
+                },
+                // type: 'log',
+                gridcolor: '#e5e7eb',
+                tickformat: 's',      // use SI prefixes (f, p, n, µ, m, k, M, G, T, etc.)
+                exponentformat: 'SI', // use SI prefixes for hover text as well
+            },
+            yaxis: {
+                title: {
+                    text: 'Magnitude (dB)'
+                },
+                gridcolor: '#e5e7eb',
+                rangemode: 'tozero'
+            },
+            title: { text: "S2P (dB) vs. Frequency (GHz)" },
+
+            hovermode: 'closest' // Initial mode
+        };
+        const plotlyConfig = { responsive: true, displayModeBar: false };
+
+        const plotTitles = {
+            'plot-s11': 'S11 (dB) vs. Frequency (GHz)',
+            'plot-s12': 'S12 (dB) vs. Frequency (GHz)',
+            'plot-s21': 'S21 (dB) vs. Frequency (GHz)',
+            'plot-s22': 'S22 (dB) vs. Frequency (GHz)'
+        };
+
+        const plotLayouts = {
+            'plot-s11': {
+                ...commonLayout,
+                title: { text: plotTitles['plot-s11'] },
+                // Fixed range from -40 dB to 0 dB
+                yaxis: { ...commonLayout.yaxis, range: [-40, 0] }
+            },
+            'plot-s12': { ...commonLayout, title: { text: plotTitles['plot-s12'] } },
+            'plot-s21': { ...commonLayout, title: { text: plotTitles['plot-s21'] } },
+            'plot-s22': {
+                ...commonLayout,
+                title: { text: plotTitles['plot-s22'] },
+                // Fixed range from -40 dB to 0 dB
+                yaxis: { ...commonLayout.yaxis, range: [-40, 0] }
+            },
+        };
+
+        const fileTraceColors = [
+            '#3b82f6', // Blue
+            '#ef4444', // Red
+            '#10b981', // Green
+            '#f59e0b', // Amber
+            '#6366f1', // Indigo
+            '#ec4899', // Pink
+            '#84cc16', // Lime
+            '#06b6d4', // Cyan
+            '#a855f7', // Purple
+            '#fdba74', // Orange (Light)
+            '#14b8a6', // Teal
+            '#eab308', // Yellow
+            '#f43f5e', // Rose
+            '#8b5cf6', // Violet
+            '#d946ef', // Fuchsia
+        ];
+
+        function createTraces(xDataArray, yDataArray, names) {
+            return names.map((name, i) => {
+                return {
+                    x: xDataArray[i],
+                    y: yDataArray[i],
+                    mode: 'lines',
+                    name: name,
+                    line: { color: fileTraceColors[i % fileTraceColors.length], width: 2 }
+                };
+            });
+        }
+
+        // Plots should be in global scope, but functions can facilitate traces
+        // use a loop for more iteration
+        Plotly.newPlot('plot-s11', createTraces(freqData, s11Data, networkNames), plotLayouts['plot-s11'], plotlyConfig);
+        Plotly.newPlot('plot-s12', createTraces(freqData, s12Data, networkNames), plotLayouts['plot-s12'], plotlyConfig);
+        Plotly.newPlot('plot-s21', createTraces(freqData, s21Data, networkNames), plotLayouts['plot-s21'], plotlyConfig);
+        Plotly.newPlot('plot-s22', createTraces(freqData, s22Data, networkNames), plotLayouts['plot-s22'], plotlyConfig);
+
+        // --- Action Functions ---
+
+        function resetZoom(divId) {
+            Plotly.relayout(divId, {
+                'xaxis.autorange': true,
+                'yaxis.autorange': true
+            });
+        }
+
+        function zoomPlot(divId, factor) {
+            const gd = document.getElementById(divId);
+            if (!gd || !gd._fullLayout) return;
+
+            const xaxis = gd._fullLayout.xaxis;
+            const yaxis = gd._fullLayout.yaxis;
+
+            // Helper to zoom a range
+            const getNewRange = (range, isLog) => {
+                // In Plotly, log ranges are stored as exponents (linear values)
+                // So we can treat them as standard linear numbers for calculation
+                const min = range[0];
+                const max = range[1];
+                const center = (max + min) / 2;
+                const span = max - min;
+                const newSpan = span * factor;
+                return [center - newSpan / 2, center + newSpan / 2];
+            };
+
+            const newX = getNewRange(xaxis.range, xaxis.type === 'log');
+            const newY = getNewRange(yaxis.range, yaxis.type === 'log');
+
+            Plotly.relayout(divId, {
+                'xaxis.range': newX,
+                'yaxis.range': newY,
+                'xaxis.autorange': false,
+                'yaxis.autorange': false
+            });
+        }
+
+        function zoomIn(divId) { zoomPlot(divId, 0.7); }
+        function zoomOut(divId) { zoomPlot(divId, 1.3); }
+
+        function downloadImage(divId, filename) {
+            const plot = document.getElementById(divId);
+            Plotly.downloadImage(plot, {
+                format: 'png',
+                filename: filename,
+                height: 800,
+                width: 1200,
+                scale: 2 // Retina quality
+            });
+        }
+
+        function downloadCSV(divId, filename) {
+            const plot = document.getElementById(divId);
+            const data = plot.data;
+
+            // We assume all traces share the same X axis (Frequency) for simplicity
+            // We will construct a CSV with: Frequency, Trace1_Y, Trace2_Y...
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+
+            // 1. Create Headers
+            let headers = ["Frequency (Hz)"];
+            data.forEach(trace => {
+                headers.push(`Magnitude (dB) - ${trace.name}`);
+            });
+            csvContent += headers.join(",") + "\r\n";
+
+            // 2. Add Rows
+            // We use the first trace to define the X rows
+            const xValues = data[0].x;
+
+            for (let i = 0; i < xValues.length; i++) {
+                let row = [xValues[i]];
+                data.forEach(trace => {
+                    // Guard against traces having different lengths
+                    row.push(trace.y[i] !== undefined ? trace.y[i] : "");
+                });
+                csvContent += row.join(",") + "\r\n";
+            }
+
+            // 3. Trigger Download
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", filename + ".csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+
+        // --- Expansion Logic ---
+        function toggleExpand(cardId) {
+            const card = document.getElementById(cardId);
+            const allCards = document.querySelectorAll('.grid-item');
+            const isExpanded = card.classList.contains('expanded');
+
+            // 1. Reset all cards
+            allCards.forEach(item => {
+                item.classList.remove('expanded');
+                item.classList.remove('md:col-span-2');
+                item.classList.remove('row-span-2');
+            });
+
+            // 2. If it wasn't expanded, expand it now
+            if (!isExpanded) {
+                card.classList.add('expanded');
+                card.classList.add('md:col-span-2');
+                card.classList.add('row-span-2');
+            }
+
+            // 3. Resize Charts after CSS transition
+            setTimeout(() => {
+                allCards.forEach(item => {
+                    const plotDiv = item.querySelector('.chart-container');
+                    Plotly.Plots.resize(plotDiv);
+                });
+            }, 450);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const plots = document.querySelectorAll('.chart-container');
+            plots.forEach(p => Plotly.Plots.resize(p));
+        });
+    </script>
+</body>
+
+</html>

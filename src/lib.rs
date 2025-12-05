@@ -1,3 +1,8 @@
+pub mod file;
+
+use rfconversions::frequency;
+use touchstone::Network;
+
 // the input to our `create_user` handler
 #[derive(Clone, Debug)]
 pub struct Block {
@@ -95,6 +100,73 @@ pub fn cascade_vector_return_vector(
         node_vector.push(cascading_signal.clone());
     }
     node_vector
+}
+
+pub fn block_from_touchstone_file_path_and_frequency_passive(
+    file_path: String,
+    frequency_in_hz: f64,
+) -> Block {
+    let s2p = Network::new(file_path.clone());
+
+    let gain_vector = s2p.s_db(2, 1); // uses 1-based indexing
+
+    let gain = gain_vector
+        .iter()
+        .find(|frequency_db| frequency_db.frequency == frequency_in_hz)
+        .unwrap()
+        .s_db
+        .decibel();
+
+    let noise_figure = gain.clone() * -1.0;
+
+    Block {
+        name: format!(
+            "{} at {} GHz",
+            file_path.clone(),
+            frequency::hz_to_ghz(frequency_in_hz)
+        ),
+        gain,
+        noise_figure,
+        output_1db_compression_point: None,
+    }
+}
+
+pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
+    println!("");
+    for (i, node) in cascade.iter().enumerate() {
+        println!("\nNode {}: {}", i, node.name);
+
+        if i == 0 {
+            // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
+            // with two digits after the decimal (hundredths place)
+            println!("Input Level {:>8.2} dBm", node.power);
+        } else {
+            // let block_gain = node.power - cascade[i - 1].power;
+            let block_gain = blocks[i - 1].gain;
+            let input_power = node.power - block_gain;
+
+            // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
+            // with two digits after the decimal (hundredths place)
+            println!("Input Power\t\t{:>8.2} dBm", input_power);
+            println!("Block Gain:\t\t{:>8.2} dB", block_gain);
+            println!("Block NF:\t\t{:>8.2} dB", blocks[i - 1].noise_figure);
+            println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain);
+            println!(
+                "Cumulative Noise Figure:{:>8.2} dB",
+                rfconversions::noise::noise_figure_from_noise_temperature(node.noise_temperature)
+            );
+            println!("Output Power\t\t{:>8.2} dBm", node.power);
+        }
+    }
+    println!();
+    println!("Final Cascade Summary:");
+    println!("----------------------");
+    println!("Number of Blocks: {}", cascade.len() - 1);
+    println!("Pin:\t{:>8.2} dBm", cascade[0].power);
+
+    let final_output_power = cascade.last().unwrap().power;
+    println!("Pout:\t{:>8.2} dBm", final_output_power);
+    println!("Gain:\t{:>8.2} dB", cascade.last().unwrap().cumulative_gain);
 }
 
 // This module contains tests for the cascade function and the Node struct
