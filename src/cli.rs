@@ -70,10 +70,27 @@ impl Config {
                 // println!("\n----------------------------\n");
                 let cascade = calculate_gainlineup(config.input_power, config.blocks.clone());
                 // println!("\n----------------------------\n");
-                print_cascade(cascade, config.blocks);
+                print_cascade(cascade.clone(), config.blocks.clone());
+
+                let path = std::path::Path::new(&full_path_to_config);
+                let parent = path.parent().unwrap_or(std::path::Path::new("."));
+                let output_filename = parent.join(format!(
+                    "{}.html",
+                    path.file_stem().unwrap().to_str().unwrap()
+                ));
+                println!("Generating HTML table at: {}", output_filename.display());
+
+                match crate::plot::generate_html_table(&cascade, &config.blocks, &output_filename) {
+                    Ok(_) => {
+                        crate::open::plot(output_filename.display().to_string());
+                    }
+                    Err(e) => {
+                        eprintln!("Error generating HTML table: {}", e);
+                    }
+                }
             }
             Err(e) => {
-                eprintln!("Error running calculation: {}", e);
+                eprintln!("Error running calculation or plotting: {}", e);
                 return Err(e);
             }
         }
@@ -197,7 +214,7 @@ mod tests {
     fn test_run_function() {
         let test_dir = setup_test_dir("test_run_function");
         let toml_path = test_dir.join("test_cli_run.toml");
-        fs::copy("tests/simple_config.toml", &toml_path).unwrap();
+        fs::copy("files/simple_config.toml", &toml_path).unwrap();
 
         let args = vec![
             String::from("program_name"),

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Gain Lineup Cascade</title>
+<style>
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background-color: #f2f2f2; }
+tr:nth-child(even) { background-color: #f9f9f9; }
+</style>
+</head>
+<body>
+<h1>Gain Lineup Cascade</h1>
+<table>
+<tr>
+<th>Stage</th>
+<th>Name</th>
+<th>Input Power (dBm)</th>
+<th>Gain (dB)</th>
+<th>NF (dB)</th>
+<th>Cumulative Gain (dB)</th>
+<th>Cumulative NF (dB)</th>
+<th>Output Power (dBm)</th>
+</tr>
+<tr>
+<td>0</td>
+<td>Input</td>
+<td>-60.00</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-60.00</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Low Noise Amplifier Output</td>
+<td>-60.00</td>
+<td>20.00</td>
+<td>3.00</td>
+<td>20.00</td>
+<td>3.03</td>
+<td>-40.00</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Touchstone Block (ntwk3.s2p) Output</td>
+<td>-40.00</td>
+<td>-3.93</td>
+<td>3.93</td>
+<td>16.07</td>
+<td>3.06</td>
+<td>-43.93</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Line Amplifier Output</td>
+<td>-43.93</td>
+<td>10.00</td>
+<td>5.00</td>
+<td>26.07</td>
+<td>3.15</td>
+<td>-33.93</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Line Amplifier Output</td>
+<td>-33.93</td>
+<td>10.00</td>
+<td>5.00</td>
+<td>36.07</td>
+<td>3.17</td>
+<td>-23.93</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Included Attenuator Output</td>
+<td>-23.93</td>
+<td>-6.00</td>
+<td>6.00</td>
+<td>30.07</td>
+<td>3.17</td>
+<td>-29.93</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Included Amplifier Output</td>
+<td>-29.93</td>
+<td>20.00</td>
+<td>4.00</td>
+<td>50.07</td>
+<td>3.17</td>
+<td>-9.93</td>
+</tr>
+</table>
+</body>
+</html>

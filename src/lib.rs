@@ -7,6 +7,9 @@ use serde::Deserialize;
 use toml;
 
 pub mod cli;
+mod file_operations;
+mod open;
+mod plot;
 
 // the input to our `create_user` handler
 #[derive(Clone, Debug)]
@@ -531,7 +534,7 @@ mod tests {
         let cwd = std::env::current_dir().unwrap();
         let config_path = std::env::args()
             .nth(1)
-            .unwrap_or_else(|| "tests/simple_config.toml".to_string());
+            .unwrap_or_else(|| "files/simple_config.toml".to_string());
         let full_path_to_config = cwd.join(config_path);
         let config_content = fs::read_to_string(full_path_to_config.display().to_string()).unwrap();
         let config = parse_test_config(&config_content).unwrap();
@@ -545,7 +548,7 @@ mod tests {
         let cwd = std::env::current_dir().unwrap();
         let config_path = std::env::args()
             .nth(1)
-            .unwrap_or_else(|| "tests/include_directive/config.toml".to_string());
+            .unwrap_or_else(|| "files/include_directive/config.toml".to_string());
         let full_path_to_config = cwd.join(config_path);
         // We need to use load_config here to handle includes correctly relative to file path
         let config = load_config(&full_path_to_config.display().to_string()).unwrap();
@@ -557,7 +560,7 @@ mod tests {
         let cwd = std::env::current_dir().unwrap();
         let config_path = std::env::args()
             .nth(1)
-            .unwrap_or_else(|| "tests/compression/compression_test.toml".to_string());
+            .unwrap_or_else(|| "files/compression/compression_test.toml".to_string());
         let full_path_to_config = cwd.join(config_path);
         // We need to use load_config here to handle includes correctly relative to file path
         let config = load_config(&full_path_to_config.display().to_string()).unwrap();
@@ -579,7 +582,7 @@ mod tests {
         let cwd = std::env::current_dir().unwrap();
         let config_path = std::env::args()
             .nth(1)
-            .unwrap_or_else(|| "tests/touchstone_options/config.toml".to_string());
+            .unwrap_or_else(|| "files/touchstone_options/config.toml".to_string());
         let full_path_to_config = cwd.join(config_path);
         // We need to use load_config here to handle includes correctly relative to file path
         let config = load_config(&full_path_to_config.display().to_string()).unwrap();
