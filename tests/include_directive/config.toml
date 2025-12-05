@@ -1,0 +1,29 @@
+input_power = -60.0
+frequency = 6.0e9
+
+[[blocks]]
+type = "explicit"
+name = "Low Noise Amplifier"
+gain = 20.0
+noise_figure = 3.0
+
+[[blocks]]
+type = "touchstone"
+file_path = "ntwk3.s2p"
+
+[[blocks]]
+type = "explicit"
+name = "Line Amplifier"
+gain = 10.0
+noise_figure = 5.0
+
+
+[[blocks]]
+type = "explicit"
+name = "Line Amplifier"
+gain = 10.0
+noise_figure = 5.0
+
+[[blocks]]
+type = "include"
+path = "sub_config.toml"

@@ -1,0 +1,22 @@
+input_power = -30.0
+frequency = 1.0e9
+
+[[blocks]]
+type = "explicit"
+name = "Low Noise Amplifier"
+gain = 30.0
+noise_figure = 3.0
+output_1db_compression_point = 5.0
+
+[[blocks]]
+type = "explicit"
+name = "Attenuator"
+gain = -6.0
+noise_figure = 6.0
+
+[[blocks]]
+type = "explicit"
+name = "High Power Amplifier"
+gain = 30.0
+noise_figure = 3.0
+output_1db_compression_point = 20.0
