@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Gain Lineup Cascade</title>
+<style>
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background-color: #f2f2f2; }
+tr:nth-child(even) { background-color: #f9f9f9; }
+</style>
+</head>
+<body>
+<h1>Gain Lineup Cascade</h1>
+<table>
+<tr>
+<th>Stage</th>
+<th>Name</th>
+<th>Input Power (dBm)</th>
+<th>Gain (dB)</th>
+<th>NF (dB)</th>
+<th>Cumulative Gain (dB)</th>
+<th>Cumulative NF (dB)</th>
+<th>Output Power (dBm)</th>
+</tr>
+<tr>
+<td>0</td>
+<td>Input</td>
+<td>-30.00</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-30.00</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Low Noise Amplifier Output</td>
+<td>-30.00</td>
+<td>30.00</td>
+<td>3.00</td>
+<td>30.00</td>
+<td>3.01</td>
+<td>0.00</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Attenuator Output</td>
+<td>0.00</td>
+<td>-6.00</td>
+<td>6.00</td>
+<td>24.00</td>
+<td>3.02</td>
+<td>-6.00</td>
+</tr>
+<tr>
+<td>3</td>
+<td>High Power Amplifier Output</td>
+<td>-6.00</td>
+<td>30.00</td>
+<td>3.00</td>
+<td>51.00</td>
+<td>3.02</td>
+<td>21.00</td>
+</tr>
+</table>
+</body>
+</html>

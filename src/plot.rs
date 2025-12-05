@@ -55,8 +55,8 @@ pub fn generate_html_table(
             writeln!(file, "<td>{:.2}</td>", node.power)?; // Output Power is same as Input for source
         } else {
             let block = &blocks[i - 1];
-            let input_power = node.power - block.gain; // Approximation if compression happened, but strictly: P_out - Gain isn't always P_in if compressed.
-                                                       // Better: cascade[i-1].power is the input power to this stage.
+            let _input_power = node.power - block.gain; // Approximation if compression happened, but strictly: P_out - Gain isn't always P_in if compressed.
+                                                        // Better: cascade[i-1].power is the input power to this stage.
             let actual_input_power = cascade[i - 1].power;
 
             writeln!(file, "<td>{:.2}</td>", actual_input_power)?;
