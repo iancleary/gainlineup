@@ -10,6 +10,7 @@ noise_figure = 3.0
 [[blocks]]
 type = "touchstone"
 file_path = "ntwk3.s2p"
+name = "Touchstone Block (ntwk3.s2p)"
 
 [[blocks]]
 type = "explicit"

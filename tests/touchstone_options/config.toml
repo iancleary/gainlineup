@@ -1,0 +1,21 @@
+input_power = -60.0
+frequency = 6.0e9
+
+[[blocks]]
+type = "touchstone"
+file_path = "ntwk3.s2p"
+name = "Touchstone Block w/ noise figure and OP1dB compression point (ntwk3.s2p)"
+noise_figure = 3.0
+output_1db_compression_point = 20.0
+
+[[blocks]]
+type = "touchstone"
+file_path = "ntwk3.s2p"
+name = "Touchstone Block w/ OP1dB compression point (ntwk3.s2p)"
+output_1db_compression_point = 20.0
+
+[[blocks]]
+type = "touchstone"
+file_path = "ntwk3.s2p"
+name = "Touchstone Block w/ noise figure (ntwk3.s2p)"
+noise_figure = 20.0

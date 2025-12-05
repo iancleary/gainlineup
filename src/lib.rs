@@ -69,6 +69,9 @@ enum BlockConfig {
     },
     Touchstone {
         file_path: String,
+        name: String,
+        noise_figure: Option<f64>,
+        output_1db_compression_point: Option<f64>,
     },
     Include {
         path: String,
@@ -134,13 +137,32 @@ fn load_blocks_recursive(
                     output_1db_compression_point,
                 });
             }
-            BlockConfig::Touchstone { file_path } => {
+            BlockConfig::Touchstone {
+                file_path,
+                name,
+                noise_figure,
+                output_1db_compression_point,
+            } => {
                 // Touchstone files might also be relative to the config file
-                let full_path = base_dir.join(file_path);
-                blocks.push(touchstone_file_path_and_frequency_to_block(
+                let full_path = base_dir.join(&file_path);
+                let gain = touchstone_file_path_and_frequency_to_gain(
                     full_path.to_string_lossy().to_string(),
                     frequency,
-                ));
+                );
+
+                let noise_figure_default = gain * -1.0; // only handles passives right now
+                let output_1db_compression_point_default = 99.0; // 99 dBm
+
+                let final_noise_figure = noise_figure.unwrap_or(noise_figure_default);
+                let final_output_1db_compression_point =
+                    output_1db_compression_point.or(Some(output_1db_compression_point_default));
+
+                blocks.push(Block {
+                    name,
+                    gain,
+                    noise_figure: final_noise_figure,
+                    output_1db_compression_point: final_output_1db_compression_point,
+                });
             }
             BlockConfig::Include { path } => {
                 let included_path = base_dir.join(&path);
@@ -156,10 +178,7 @@ fn load_blocks_recursive(
     Ok(())
 }
 
-pub fn touchstone_file_path_and_frequency_to_block(
-    file_path: String,
-    frequency_in_hz: f64,
-) -> Block {
+pub fn touchstone_file_path_and_frequency_to_gain(file_path: String, frequency_in_hz: f64) -> f64 {
     let s2p = Network::new(file_path.clone());
 
     let gain_vector = s2p.s_db(2, 1); // uses 1-based indexing
@@ -171,23 +190,7 @@ pub fn touchstone_file_path_and_frequency_to_block(
         .s_db
         .decibel();
 
-    let noise_figure = gain.clone() * -1.0;
-
-    let cwd = std::env::current_dir().unwrap();
-    // println!("Current Directory: {}", cwd.display());
-
-    let file_path_remove_cwd = file_path.replace(&cwd.display().to_string(), ".");
-
-    Block {
-        name: format!(
-            "{} at {} GHz",
-            file_path_remove_cwd.clone(),
-            frequency::hz_to_ghz(frequency_in_hz)
-        ),
-        gain,
-        noise_figure,
-        output_1db_compression_point: None,
-    }
+    gain
 }
 
 // returns output power, handling compression point if present
@@ -570,5 +573,17 @@ mod tests {
         let cascade = cascade_vector_return_vector(input_node, config.blocks);
 
         assert_eq!(cascade.last().unwrap().power, 21.0);
+    }
+
+    #[test]
+    fn test_touchstone_options() {
+        let cwd = std::env::current_dir().unwrap();
+        let config_path = std::env::args()
+            .nth(1)
+            .unwrap_or_else(|| "tests/touchstone_options/config.toml".to_string());
+        let full_path_to_config = cwd.join(config_path);
+        // We need to use load_config here to handle includes correctly relative to file path
+        let config = load_config(&full_path_to_config.display().to_string()).unwrap();
+        assert_eq!(config.blocks.len(), 3);
     }
 }
