@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 
-use rfconversions::frequency;
 use touchstone::Network;
 
 use serde::Deserialize;
