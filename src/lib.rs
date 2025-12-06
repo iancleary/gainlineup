@@ -4,7 +4,6 @@ use std::path::Path;
 use touchstone::Network;
 
 use serde::Deserialize;
-use toml;
 
 pub mod cli;
 mod file_operations;
@@ -155,7 +154,7 @@ fn load_blocks_recursive(
                     frequency,
                 );
 
-                let noise_figure_default = gain * -1.0; // only handles passives right now
+                let noise_figure_default = -gain; // only handles passives right now
                 let output_1db_compression_point_default = 99.0; // 99 dBm
 
                 let final_noise_figure = noise_figure.unwrap_or(noise_figure_default);
@@ -503,7 +502,6 @@ mod tests {
 
     use std::fs;
     use std::path::Path;
-    use toml;
 
     use crate::{cascade_vector_return_vector, SignalNode};
 
