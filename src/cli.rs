@@ -11,11 +11,15 @@ use crate::SignalNode;
 
 use rfconversions;
 
-fn calculate_gainlineup(input_power: f64, blocks: Vec<Block>) -> Vec<SignalNode> {
+fn calculate_gainlineup(
+    input_power: f64,
+    blocks: Vec<Block>,
+    input_noise_temperature: Option<f64>,
+) -> Vec<SignalNode> {
     let input_node = SignalNode {
         name: "Input".to_string(),
         power: input_power,
-        noise_temperature: 290.0,
+        noise_temperature: input_noise_temperature.unwrap_or(290.0),
         cumulative_gain: 0.0,
     };
 
@@ -69,7 +73,11 @@ impl Config {
         match load_config(&full_path_to_config.display().to_string()) {
             Ok(config) => {
                 // println!("\n----------------------------\n");
-                let cascade = calculate_gainlineup(config.input_power, config.blocks.clone());
+                let cascade = calculate_gainlineup(
+                    config.input_power,
+                    config.blocks.clone(),
+                    config.noise_temperature,
+                );
                 // println!("\n----------------------------\n");
                 print_cascade(cascade.clone(), config.blocks.clone());
 
@@ -114,6 +122,9 @@ impl Config {
                 println!("Generating HTML table at: {}", output_html_path);
 
                 match crate::plot::generate_html_table(
+                    config.input_power,
+                    config.frequency,
+                    config.noise_temperature,
                     &cascade,
                     &config.blocks,
                     output_html_path_str,
