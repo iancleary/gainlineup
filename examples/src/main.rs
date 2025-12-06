@@ -15,13 +15,7 @@ fn run() {
     // Add your code logic here
     const INPUT_POWER: f64 = 10.0; // dBm
 
-    let input_node = SignalNode {
-        name: "Input".to_string(),
-        power: INPUT_POWER,
-        noise_temperature: 290.0,
-        noise_spectral_density: -173.97,
-        cumulative_gain: 0.0, // starting/initial/input node of cascade
-    };
+    let input_node = SignalNode::new("Input".to_string(), INPUT_POWER, 290.0, 0.0);
 
     let cable_from_signal_generator = Block {
         name: "Cable Run from Signal Generator to DUT".to_string(),

@@ -9,27 +9,13 @@ use crate::load_config;
 use crate::Block;
 use crate::SignalNode;
 
-use rfconversions;
-
 fn calculate_gainlineup(
     input_power: f64,
     blocks: Vec<Block>,
     input_noise_temperature: Option<f64>,
 ) -> Vec<SignalNode> {
     let noise_temperature = input_noise_temperature.unwrap_or(290.0);
-    // k in J/K, multiplied by 1000 for dBm
-    let k_boltzmann = 1.380649e-23;
-    let dbm_factor = 1000.0; // mW -> multiply W by 1000 to get mW count (dBW to dBm)
-    let noise_spectral_density_linear = k_boltzmann * noise_temperature * dbm_factor;
-    let noise_spectral_density = 10.0 * noise_spectral_density_linear.log10();
-
-    let input_node = SignalNode {
-        name: "Input".to_string(),
-        power: input_power,
-        noise_temperature,
-        noise_spectral_density,
-        cumulative_gain: 0.0,
-    };
+    let input_node = SignalNode::new("Input".to_string(), input_power, noise_temperature, 0.0);
 
     let full_cascade: Vec<SignalNode> = cascade_vector_return_vector(input_node, blocks);
 
@@ -228,11 +214,15 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
             println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain);
             println!(
                 "Cumulative Noise Figure:{:>8.2} dB",
-                rfconversions::noise::noise_figure_from_noise_temperature(node.noise_temperature)
+                node.cumulative_noise_figure()
             );
             println!(
                 "Noise Spectral Density:\t{:>8.2} dBm/Hz",
-                node.noise_spectral_density
+                node.noise_spectral_density()
+            );
+            println!(
+                "Signal to Noise Ratio:\t{:>8.2} dB",
+                node.signal_to_noise_ratio()
             );
             println!("Output Power\t\t{:>8.2} dBm", node.power);
         }
