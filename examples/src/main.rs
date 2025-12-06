@@ -19,6 +19,7 @@ fn run() {
         name: "Input".to_string(),
         power: INPUT_POWER,
         noise_temperature: 290.0,
+        noise_spectral_density: -173.97,
         cumulative_gain: 0.0, // starting/initial/input node of cascade
     };
 

@@ -38,9 +38,10 @@ impl Block {
 #[derive(Clone, Debug)]
 pub struct SignalNode {
     pub name: String,
-    pub power: f64,             // dBm
-    pub noise_temperature: f64, // cumulative, dB
-    pub cumulative_gain: f64,   // cumulative, dB (set to 0 at start)
+    pub power: f64,                  // dBm
+    pub noise_temperature: f64,      // cumulative, dB
+    pub noise_spectral_density: f64, // dBm/Hz
+    pub cumulative_gain: f64,        // cumulative, dB (set to 0 at start)
 }
 
 // the structure of the toml files
@@ -230,11 +231,19 @@ pub fn cascade_node(signal: SignalNode, block1: Block) -> SignalNode {
 
     let stage_gain = output_power - signal.power;
 
+    let output_noise_temperature =
+        signal.noise_temperature + block_noise_temperature / cumulative_gain_linear;
+
+    // k in J/K, multiplied by 1000 for dBm
+    let k_boltzmann = 1.380649e-23;
+    let noise_spectral_density_linear = k_boltzmann * output_noise_temperature * 1000.0;
+    let noise_spectral_density = 10.0 * noise_spectral_density_linear.log10();
+
     SignalNode {
         name: output_node_name,
         power: output_power,
-        noise_temperature: signal.noise_temperature
-            + block_noise_temperature / cumulative_gain_linear,
+        noise_temperature: output_noise_temperature,
+        noise_spectral_density,
         cumulative_gain: signal.cumulative_gain + stage_gain,
     }
 }
@@ -303,6 +312,7 @@ mod tests {
             name: "Input".to_string(),
             power: input_power,
             noise_temperature: 290.0,
+            noise_spectral_density: -173.97,
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
         let amplifier = super::Block {
@@ -329,6 +339,7 @@ mod tests {
             name: "Input".to_string(),
             power: input_power,
             noise_temperature: 290.0,
+            noise_spectral_density: -173.97,
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
         let amplifier = super::Block {
@@ -356,6 +367,7 @@ mod tests {
             name: "Input".to_string(),
             power: input_power,
             noise_temperature: 290.0,
+            noise_spectral_density: -173.97,
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
         let amplifier = super::Block {
@@ -394,6 +406,7 @@ mod tests {
             name: "Input".to_string(),
             power: input_power,
             noise_temperature: 290.0,
+            noise_spectral_density: -173.97,
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
         let amplifier = super::Block {
@@ -429,6 +442,7 @@ mod tests {
             name: "Input".to_string(),
             power: input_power,
             noise_temperature: 290.0,
+            noise_spectral_density: -173.97,
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
         let amplifier = super::Block {
@@ -465,6 +479,7 @@ mod tests {
             name: "Input".to_string(),
             power: input_power,
             noise_temperature: 290.0,
+            noise_spectral_density: -173.97,
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
         let low_noise_amplifier = super::Block {
@@ -573,6 +588,7 @@ mod tests {
             name: "Input".to_string(),
             power: config.input_power,
             noise_temperature: 290.0,
+            noise_spectral_density: -173.97,
             cumulative_gain: 0.0,
         };
         let cascade = cascade_vector_return_vector(input_node, config.blocks);

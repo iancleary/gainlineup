@@ -93,6 +93,7 @@ pub fn generate_html_table(
     writeln!(file, "<th>Output P1dB (dBm)</th>")?;
     writeln!(file, "<th>Cumulative Gain (dB)</th>")?;
     writeln!(file, "<th>Cumulative NF (dB)</th>")?;
+    writeln!(file, "<th>Noise Spectral Density (dBm/Hz)</th>")?;
     writeln!(file, "</tr>")?;
 
     for (i, node) in cascade.iter().enumerate() {
@@ -108,6 +109,7 @@ pub fn generate_html_table(
             writeln!(file, "<td>-</td>")?; // P1dB
             writeln!(file, "<td>-</td>")?; // Cumulative Gain
             writeln!(file, "<td>-</td>")?; // Cumulative NF
+            writeln!(file, "<td>{:.2}</td>", node.noise_spectral_density)?; // Noise Spectral Density
         } else {
             let block = &blocks[i - 1];
             let actual_input_power = cascade[i - 1].power;
@@ -127,6 +129,7 @@ pub fn generate_html_table(
                 "<td>{:.2}</td>",
                 rfconversions::noise::noise_figure_from_noise_temperature(node.noise_temperature)
             )?;
+            writeln!(file, "<td>{:.2}</td>", node.noise_spectral_density)?;
         }
         writeln!(file, "</tr>")?;
     }

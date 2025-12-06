@@ -16,10 +16,18 @@ fn calculate_gainlineup(
     blocks: Vec<Block>,
     input_noise_temperature: Option<f64>,
 ) -> Vec<SignalNode> {
+    let noise_temperature = input_noise_temperature.unwrap_or(290.0);
+    // k in J/K, multiplied by 1000 for dBm
+    let k_boltzmann = 1.380649e-23;
+    let dbm_factor = 1000.0; // mW -> multiply W by 1000 to get mW count (dBW to dBm)
+    let noise_spectral_density_linear = k_boltzmann * noise_temperature * dbm_factor;
+    let noise_spectral_density = 10.0 * noise_spectral_density_linear.log10();
+
     let input_node = SignalNode {
         name: "Input".to_string(),
         power: input_power,
-        noise_temperature: input_noise_temperature.unwrap_or(290.0),
+        noise_temperature,
+        noise_spectral_density,
         cumulative_gain: 0.0,
     };
 
@@ -221,6 +229,10 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
             println!(
                 "Cumulative Noise Figure:{:>8.2} dB",
                 rfconversions::noise::noise_figure_from_noise_temperature(node.noise_temperature)
+            );
+            println!(
+                "Noise Spectral Density:\t{:>8.2} dBm/Hz",
+                node.noise_spectral_density
             );
             println!("Output Power\t\t{:>8.2} dBm", node.power);
         }
