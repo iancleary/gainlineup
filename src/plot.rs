@@ -8,6 +8,7 @@ use crate::SignalNode;
 pub fn generate_html_table(
     input_power: f64,
     frequency: f64,
+    bandwidth: f64,
     input_noise_temperature: Option<f64>,
     cascade: &[SignalNode],
     blocks: &[Block],
@@ -65,6 +66,23 @@ pub fn generate_html_table(
     writeln!(file, "<td>{}</td>", freq_unit)?;
     writeln!(file, "</tr>")?;
     writeln!(file, "<tr>")?;
+    writeln!(file, "<td>Bandwidth</td>")?;
+    let (bw_val, bw_unit) = if bandwidth >= 1e12 {
+        (bandwidth / 1e12, "THz")
+    } else if bandwidth >= 1e9 {
+        (bandwidth / 1e9, "GHz")
+    } else if bandwidth >= 1e6 {
+        (bandwidth / 1e6, "MHz")
+    } else if bandwidth >= 1e3 {
+        (bandwidth / 1e3, "kHz")
+    } else {
+        (bandwidth, "Hz")
+    };
+    writeln!(file, "<td>{:.2}</td>", bw_val)?;
+    writeln!(file, "<td>{}</td>", bw_unit)?;
+    writeln!(file, "</tr>")?;
+
+    writeln!(file, "<tr>")?;
     let noise_temp_label = if input_noise_temperature.is_some() {
         "Input Noise Temperature"
     } else {
@@ -94,6 +112,7 @@ pub fn generate_html_table(
     writeln!(file, "<th>Cumulative Gain (dB)</th>")?;
     writeln!(file, "<th>Cumulative NF (dB)</th>")?;
     writeln!(file, "<th>Noise Spectral Density (dBm/Hz)</th>")?;
+    writeln!(file, "<th>Noise Power (dBm)</th>")?;
     writeln!(file, "<th>Signal to Noise Ratio (dB)</th>")?;
     writeln!(file, "</tr>")?;
 
@@ -103,32 +122,43 @@ pub fn generate_html_table(
         writeln!(file, "<td>{}</td>", node.name)?;
 
         if i == 0 {
-            writeln!(file, "<td>-</td>")?;
-            writeln!(file, "<td>-</td>")?;
-            writeln!(file, "<td>{:.2}</td>", node.power)?; // Input Power
-            writeln!(file, "<td>{:.2}</td>", node.power)?; // Output Power
+            // Input Node
+            writeln!(file, "<td>-</td>")?; // Block Gain
+            writeln!(file, "<td>-</td>")?; // Block NF
+            writeln!(file, "<td>{:.2}</td>", node.signal_power)?; // Input Power
+            writeln!(file, "<td>{:.2}</td>", node.signal_power)?; // Output Power (same as input for the first node)
             writeln!(file, "<td>-</td>")?; // P1dB
             writeln!(file, "<td>-</td>")?; // Cumulative Gain
             writeln!(file, "<td>-</td>")?; // Cumulative NF
             writeln!(file, "<td>{:.2}</td>", node.noise_spectral_density())?; // Noise Spectral Density
-            writeln!(file, "<td>{:.2}</td>", node.signal_to_noise_ratio())?; // Signal to Noise Ratio
+            writeln!(file, "<td>{:.2}</td>", node.noise_power(bandwidth))?; // Noise Power
+            writeln!(
+                file,
+                "<td>{:.2}</td>",
+                node.signal_to_noise_ratio(bandwidth)
+            )?; // Signal to Noise Ratio
         } else {
             let block = &blocks[i - 1];
-            let actual_input_power = cascade[i - 1].power;
+            let actual_input_power = cascade[i - 1].signal_power;
 
-            writeln!(file, "<td>{:.2}</td>", block.gain)?;
-            writeln!(file, "<td>{:.2}</td>", block.noise_figure)?;
-            writeln!(file, "<td>{:.2}</td>", actual_input_power)?;
-            writeln!(file, "<td>{:.2}</td>", node.power)?;
+            writeln!(file, "<td>{:.2}</td>", block.gain)?; // Block Gain
+            writeln!(file, "<td>{:.2}</td>", block.noise_figure)?; // Block NF
+            writeln!(file, "<td>{:.2}</td>", actual_input_power)?; // Input Power to this block
+            writeln!(file, "<td>{:.2}</td>", node.signal_power)?; // Output Power from this block
             if let Some(p1db) = block.output_1db_compression_point {
                 writeln!(file, "<td>{:.2}</td>", p1db)?;
             } else {
                 writeln!(file, "<td>-</td>")?;
             }
-            writeln!(file, "<td>{:.2}</td>", node.cumulative_gain)?;
-            writeln!(file, "<td>{:.2}</td>", node.cumulative_noise_figure())?;
-            writeln!(file, "<td>{:.2}</td>", node.noise_spectral_density())?;
-            writeln!(file, "<td>{:.2}</td>", node.signal_to_noise_ratio())?;
+            writeln!(file, "<td>{:.2}</td>", node.cumulative_gain)?; // Cumulative Gain
+            writeln!(file, "<td>{:.2}</td>", node.cumulative_noise_figure())?; // Cumulative NF
+            writeln!(file, "<td>{:.2}</td>", node.noise_spectral_density())?; // Noise Spectral Density
+            writeln!(file, "<td>{:.2}</td>", node.noise_power(bandwidth))?; // Noise Power
+            writeln!(
+                file,
+                "<td>{:.2}</td>",
+                node.signal_to_noise_ratio(bandwidth)
+            )?; // Signal to Noise Ratio
         }
         writeln!(file, "</tr>")?;
     }

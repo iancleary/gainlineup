@@ -15,8 +15,8 @@ fn calculate_gainlineup(
     input_noise_temperature: Option<f64>,
 ) -> Vec<SignalNode> {
     let noise_temperature = input_noise_temperature.unwrap_or(290.0);
-    let input_node = SignalNode::new("Input".to_string(), input_power, noise_temperature, 0.0);
 
+    let input_node = SignalNode::new("Input".to_string(), input_power, noise_temperature, 0.0);
     let full_cascade: Vec<SignalNode> = cascade_vector_return_vector(input_node, blocks);
 
     full_cascade
@@ -72,8 +72,12 @@ impl Config {
                     config.blocks.clone(),
                     config.noise_temperature,
                 );
+
+                // default to CW (bandwidth = 1.0 Hz) if not specified
+                let bandwidth = config.bandwidth.unwrap_or(1.0);
+
                 // println!("\n----------------------------\n");
-                print_cascade(cascade.clone(), config.blocks.clone());
+                print_cascade(cascade.clone(), config.blocks.clone(), bandwidth);
 
                 let file_path = full_path_to_config.display().to_string();
 
@@ -118,6 +122,7 @@ impl Config {
                 match crate::plot::generate_html_table(
                     config.input_power,
                     config.frequency,
+                    bandwidth,
                     config.noise_temperature,
                     &cascade,
                     &config.blocks,
@@ -192,7 +197,7 @@ pub fn print_help() {
     println!();
 }
 
-pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
+pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>, bandwidth: f64) {
     println!();
     for (i, node) in cascade.iter().enumerate() {
         println!("\nNode {}: {}", i, node.name);
@@ -200,11 +205,11 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
         if i == 0 {
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
-            println!("Input Level {:>8.2} dBm", node.power);
+            println!("Input Level {:>8.2} dBm", node.signal_power);
         } else {
             // let block_gain = node.power - cascade[i - 1].power;
             let block_gain = blocks[i - 1].gain;
-            let input_power = node.power - block_gain;
+            let input_power = node.signal_power - block_gain;
 
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
@@ -220,20 +225,21 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
                 "Noise Spectral Density:\t{:>8.2} dBm/Hz",
                 node.noise_spectral_density()
             );
+            println!("Noise Power:\t\t{:>8.2} dBm", node.noise_power(bandwidth));
             println!(
                 "Signal to Noise Ratio:\t{:>8.2} dB",
-                node.signal_to_noise_ratio()
+                node.signal_to_noise_ratio(bandwidth)
             );
-            println!("Output Power\t\t{:>8.2} dBm", node.power);
+            println!("Output Power\t\t{:>8.2} dBm", node.signal_power);
         }
     }
     println!();
     println!("Final Cascade Summary:");
     println!("----------------------");
-    println!("Number of Blocks: {}", cascade.len() - 1);
-    println!("Pin:\t{:>8.2} dBm", cascade[0].power);
+    println!("Number of Blocks: {}", blocks.len());
+    println!("Pin:\t{:>8.2} dBm", cascade.first().unwrap().signal_power);
 
-    let final_output_power = cascade.last().unwrap().power;
+    let final_output_power = cascade.last().unwrap().signal_power;
     println!("Pout:\t{:>8.2} dBm", final_output_power);
     println!("Gain:\t{:>8.2} dB", cascade.last().unwrap().cumulative_gain);
 }

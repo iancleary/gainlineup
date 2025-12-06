@@ -16,7 +16,6 @@ fn run() {
     const INPUT_POWER: f64 = 10.0; // dBm
 
     let input_node = SignalNode::new("Input".to_string(), INPUT_POWER, 290.0, 0.0);
-
     let cable_from_signal_generator = Block {
         name: "Cable Run from Signal Generator to DUT".to_string(),
         gain: -6.0,
@@ -56,28 +55,26 @@ fn run() {
         if i == 0 {
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
-            println!("Input Level {:>8.2} dBm", node.power);
+            println!("Input Level {:>8.2} dBm", node.signal_power);
         } else {
-            let block_gain = full_cascade[i].power - full_cascade[i - 1].power;
-            let input_power = node.power - block_gain;
+            // let block_gain = node.power - cascade[i - 1].power;
+            let block_gain = blocks[i - 1].gain;
+            let input_power = node.signal_power - block_gain;
 
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
-            println!("Input Power\t{:>8.2} dBm", input_power);
-            println!(
-                "Block Gain:\t{:>8.2} dB    (Cumulative Gain: {:>8.2} dB)",
-                block_gain, node.cumulative_gain
-            );
-            println!("Output Power\t{:>8.2} dBm", node.power);
+            println!("Block Gain  {:>8.2} dB", block_gain);
+            println!("Input Power  {:>8.2} dBm", input_power);
+            println!("Output Power {:>8.2} dBm", node.signal_power);
         }
     }
     println!();
     println!("Final Cascade Summary:");
     println!("----------------------");
     println!("Number of Blocks: {}", full_cascade.len() - 1);
-    println!("Pin:\t{:>8.2} dBm", full_cascade[0].power);
+    println!("Pin:\t{:>8.2} dBm", full_cascade[0].signal_power);
 
-    let final_output_power = full_cascade.last().unwrap().power;
+    let final_output_power = full_cascade.last().unwrap().signal_power;
     println!("Pout:\t{:>8.2} dBm", final_output_power);
     println!(
         "Gain:\t{:>8.2} dB",
