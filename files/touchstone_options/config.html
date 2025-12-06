@@ -3,7 +3,10 @@
 <head>
 <title>Gain Lineup Cascade</title>
 <style>
-table { border-collapse: collapse; width: 100%; }
+table { border-collapse: collapse; }
+.cascade { width: 100%; }
+.parameters { width: auto; }
+.parameters td:nth-child(2) { text-align: right; }
 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
 th { background-color: #f2f2f2; }
 tr:nth-child(even) { background-color: #f9f9f9; }
@@ -11,56 +14,86 @@ tr:nth-child(even) { background-color: #f9f9f9; }
 </head>
 <body>
 <h1>Gain Lineup Cascade</h1>
-<table>
+<h2>Input Parameters</h2>
+<table class="parameters">
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Unit</th>
+</tr>
+<tr>
+<td>Input Power</td>
+<td>-60.00</td>
+<td>dBm</td>
+</tr>
+<tr>
+<td>Frequency</td>
+<td>6.00</td>
+<td>GHz</td>
+</tr>
+<tr>
+<td>Input Noise Temperature (Default)</td>
+<td>290.00</td>
+<td>K</td>
+</tr>
+</table>
+<br>
+<h2>Signal Cascade</h2>
+<table class="cascade">
 <tr>
 <th>Stage</th>
 <th>Name</th>
-<th>Input Power (dBm)</th>
 <th>Gain (dB)</th>
 <th>NF (dB)</th>
+<th>Input Power (dBm)</th>
+<th>Output Power (dBm)</th>
+<th>Output P1dB (dBm)</th>
 <th>Cumulative Gain (dB)</th>
 <th>Cumulative NF (dB)</th>
-<th>Output Power (dBm)</th>
 </tr>
 <tr>
 <td>0</td>
 <td>Input</td>
+<td>-</td>
+<td>-</td>
+<td>-60.00</td>
 <td>-60.00</td>
 <td>-</td>
 <td>-</td>
 <td>-</td>
-<td>-</td>
-<td>-60.00</td>
 </tr>
 <tr>
 <td>1</td>
 <td>Touchstone Block w/ noise figure and OP1dB compression point (ntwk3.s2p) Output</td>
-<td>-60.00</td>
 <td>-3.93</td>
 <td>3.00</td>
+<td>-60.00</td>
+<td>-63.93</td>
+<td>20.00</td>
 <td>-3.93</td>
 <td>4.33</td>
-<td>-63.93</td>
 </tr>
 <tr>
 <td>2</td>
 <td>Touchstone Block w/ OP1dB compression point (ntwk3.s2p) Output</td>
-<td>-63.93</td>
 <td>-3.93</td>
 <td>3.93</td>
+<td>-63.93</td>
+<td>-67.86</td>
+<td>20.00</td>
 <td>-7.86</td>
 <td>6.56</td>
-<td>-67.86</td>
 </tr>
 <tr>
 <td>3</td>
 <td>Touchstone Block w/ noise figure (ntwk3.s2p) Output</td>
-<td>-67.86</td>
 <td>-3.93</td>
 <td>20.00</td>
+<td>-67.86</td>
+<td>-71.80</td>
+<td>99.00</td>
 <td>-11.80</td>
 <td>22.52</td>
-<td>-71.80</td>
 </tr>
 </table>
 </body>
