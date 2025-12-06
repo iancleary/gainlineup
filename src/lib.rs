@@ -38,9 +38,47 @@ impl Block {
 #[derive(Clone, Debug)]
 pub struct SignalNode {
     pub name: String,
-    pub power: f64,             // dBm
+    pub signal_power: f64,      // dBm
     pub noise_temperature: f64, // cumulative, dB
     pub cumulative_gain: f64,   // cumulative, dB (set to 0 at start)
+}
+
+impl SignalNode {
+    pub fn new(
+        name: String,
+        signal_power: f64,
+        noise_temperature: f64,
+        cumulative_gain: f64,
+    ) -> SignalNode {
+        SignalNode {
+            name,
+            signal_power,
+            noise_temperature,
+            cumulative_gain,
+        }
+    }
+
+    pub fn noise_spectral_density(&self) -> f64 {
+        // k in J/K, multiplied by 1000 for dBm
+        let k_boltzmann = 1.380649e-23;
+        let w_to_mw = 1000.0; // mW -> multiply W by 1000 to get mW count (dBW to dBm)
+        let noise_spectral_density_linear = k_boltzmann * self.noise_temperature * w_to_mw;
+        // convert linear mW to dBm
+        10.0 * noise_spectral_density_linear.log10() // dBm/Hz
+    }
+
+    pub fn cumulative_noise_figure(&self) -> f64 {
+        rfconversions::noise::noise_figure_from_noise_temperature(self.noise_temperature)
+    }
+
+    pub fn signal_to_noise_ratio(&self, bandwidth: f64) -> f64 {
+        let noise_power = self.noise_power(bandwidth);
+        self.signal_power - noise_power
+    }
+
+    pub fn noise_power(&self, bandwidth: f64) -> f64 {
+        self.noise_spectral_density() + 10.0 * bandwidth.log10()
+    }
 }
 
 // the structure of the toml files
@@ -51,6 +89,7 @@ pub struct SignalNode {
 pub struct Config {
     pub input_power: f64,
     pub frequency: f64,
+    pub bandwidth: Option<f64>,
     pub noise_temperature: Option<f64>,
     pub blocks: Vec<Block>,
 }
@@ -92,6 +131,7 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     struct IntermediateConfig {
         input_power: f64,
         frequency: f64,
+        bandwidth: Option<f64>,
         noise_temperature: Option<f64>,
         blocks: Vec<BlockConfig>,
     }
@@ -115,6 +155,7 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     Ok(Config {
         input_power: intermediate_config.input_power,
         frequency: intermediate_config.frequency,
+        bandwidth: intermediate_config.bandwidth,
         noise_temperature: intermediate_config.noise_temperature,
         blocks,
     })
@@ -216,8 +257,8 @@ pub fn cascade_node(signal: SignalNode, block1: Block) -> SignalNode {
     let cumulative_gain_linear = rfconversions::power::db_to_linear(signal.cumulative_gain)
         + rfconversions::power::db_to_linear(block1.gain);
 
-    // handle compression point
-    let output_power_without_compression = signal.power + block1.gain;
+    // handle compression point (simple approach with P1dB)
+    let output_power_without_compression = signal.signal_power + block1.gain;
     let output_power = if let Some(op1db) = block1.output_1db_compression_point {
         if output_power_without_compression > op1db + 1.0 {
             op1db + 1.0
@@ -228,13 +269,15 @@ pub fn cascade_node(signal: SignalNode, block1: Block) -> SignalNode {
         output_power_without_compression
     };
 
-    let stage_gain = output_power - signal.power;
+    let stage_gain = output_power - signal.signal_power;
+
+    let output_noise_temperature =
+        signal.noise_temperature + block_noise_temperature / cumulative_gain_linear;
 
     SignalNode {
         name: output_node_name,
-        power: output_power,
-        noise_temperature: signal.noise_temperature
-            + block_noise_temperature / cumulative_gain_linear,
+        signal_power: output_power,
+        noise_temperature: output_noise_temperature,
         cumulative_gain: signal.cumulative_gain + stage_gain,
     }
 }
@@ -299,12 +342,7 @@ mod tests {
     #[test]
     fn one_part_node() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
-            power: input_power,
-            noise_temperature: 290.0,
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
-        };
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
             gain: 10.0,
@@ -313,7 +351,7 @@ mod tests {
         };
         let output_node = super::cascade_node(input_node, amplifier);
 
-        assert_eq!(output_node.power, -20.0);
+        assert_eq!(output_node.signal_power, -20.0);
         assert_eq!(output_node.name, "Simple Amplifier Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
         let output_noise_figure = rfconversions::noise::noise_figure_from_noise_temperature(
@@ -325,12 +363,7 @@ mod tests {
     #[test]
     fn one_part_lna_node() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
-            power: input_power,
-            noise_temperature: 290.0,
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
-        };
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -340,7 +373,7 @@ mod tests {
 
         let output_node = super::cascade_node(input_node, amplifier);
 
-        assert_eq!(output_node.power, 0.0);
+        assert_eq!(output_node.signal_power, 0.0);
         assert_eq!(output_node.name, "Low Noise Amplifier Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
         let output_noise_figure = rfconversions::noise::noise_figure_from_noise_temperature(
@@ -352,12 +385,7 @@ mod tests {
     #[test]
     fn two_part_node() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
-            power: input_power,
-            noise_temperature: 290.0,
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
-        };
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -376,7 +404,7 @@ mod tests {
 
         let output_node = super::cascade_node(intermediate_node, attenuator);
 
-        assert_eq!(output_node.power, -6.0);
+        assert_eq!(output_node.signal_power, -6.0);
         assert_eq!(output_node.cumulative_gain, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
@@ -390,12 +418,7 @@ mod tests {
     #[test]
     fn two_part_node_cascade_vector_return_output() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
-            power: input_power,
-            noise_temperature: 290.0,
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
-        };
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -411,7 +434,7 @@ mod tests {
         let blocks = vec![amplifier, attenuator];
         let output_node = super::cascade_vector_return_output(input_node, blocks);
 
-        assert_eq!(output_node.power, -6.0);
+        assert_eq!(output_node.signal_power, -6.0);
         assert_eq!(output_node.cumulative_gain, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
@@ -425,12 +448,7 @@ mod tests {
     #[test]
     fn two_part_node_cascade_vector_return_vector() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
-            power: input_power,
-            noise_temperature: 290.0,
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
-        };
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -447,7 +465,7 @@ mod tests {
         let cascade_vector = super::cascade_vector_return_vector(input_node, blocks);
 
         let output_node = cascade_vector.last().unwrap();
-        assert_eq!(output_node.power, -6.0);
+        assert_eq!(output_node.signal_power, -6.0);
         assert_eq!(output_node.cumulative_gain, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
@@ -461,12 +479,7 @@ mod tests {
     #[test]
     fn two_part_node_cascade_vector_return_vector_with_compression() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
-            power: input_power,
-            noise_temperature: 290.0,
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
-        };
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
         let low_noise_amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -489,7 +502,7 @@ mod tests {
         let cascade_vector = super::cascade_vector_return_vector(input_node, blocks);
 
         let output_node = cascade_vector.last().unwrap();
-        assert_eq!(output_node.power, 21.0);
+        assert_eq!(output_node.signal_power, 21.0);
         assert_eq!(output_node.cumulative_gain, 51.0);
 
         assert_eq!(output_node.name, "High Power Amplifier Output");
@@ -511,6 +524,7 @@ mod tests {
         struct IntermediateConfig {
             input_power: f64,
             frequency: f64,
+            bandwidth: Option<f64>,
             noise_temperature: Option<f64>,
             blocks: Vec<BlockConfig>,
         }
@@ -527,6 +541,7 @@ mod tests {
         Ok(Config {
             input_power: intermediate_config.input_power,
             frequency: intermediate_config.frequency,
+            bandwidth: intermediate_config.bandwidth,
             noise_temperature: intermediate_config.noise_temperature,
             blocks,
         })
@@ -569,15 +584,10 @@ mod tests {
         let config = load_config(&full_path_to_config.display().to_string()).unwrap();
         assert_eq!(config.blocks.len(), 3);
 
-        let input_node = SignalNode {
-            name: "Input".to_string(),
-            power: config.input_power,
-            noise_temperature: 290.0,
-            cumulative_gain: 0.0,
-        };
+        let input_node = SignalNode::new("Input".to_string(), config.input_power, 290.0, 0.0);
         let cascade = cascade_vector_return_vector(input_node, config.blocks);
 
-        assert_eq!(cascade.last().unwrap().power, 21.0);
+        assert_eq!(cascade.last().unwrap().signal_power, 21.0);
     }
 
     #[test]
