@@ -199,7 +199,7 @@ pub fn print_help() {
 }
 
 pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
-    println!("");
+    println!();
     for (i, node) in cascade.iter().enumerate() {
         println!("\nNode {}: {}", i, node.name);
 

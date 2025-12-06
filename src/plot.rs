@@ -4,14 +4,13 @@ use std::path::Path;
 
 use crate::Block;
 use crate::SignalNode;
-use rfconversions;
 
 pub fn generate_html_table(
     input_power: f64,
     frequency: f64,
     input_noise_temperature: Option<f64>,
-    cascade: &Vec<SignalNode>,
-    blocks: &Vec<Block>,
+    cascade: &[SignalNode],
+    blocks: &[Block],
     output_path_str: &str,
 ) -> Result<(), std::io::Error> {
     let path = Path::new(output_path_str);
