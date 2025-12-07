@@ -18,4 +18,4 @@ output_1db_compression_point = 20.0
 type = "touchstone"
 file_path = "ntwk3.s2p"
 name = "Touchstone Block w/ noise figure (ntwk3.s2p)"
-noise_figure = 20.0
+noise_figure = 10.0

@@ -38,9 +38,9 @@ impl Block {
 #[derive(Clone, Debug)]
 pub struct SignalNode {
     pub name: String,
-    pub signal_power: f64,      // dBm
-    pub noise_temperature: f64, // cumulative, dB
-    pub cumulative_gain: f64,   // cumulative, dB (set to 0 at start)
+    pub signal_power: f64,            // dBm
+    pub noise_temperature: f64,       // cumulative, K
+    pub cumulative_gain: Option<f64>, // cumulative, dB (set to 0 at start)
 }
 
 impl SignalNode {
@@ -48,7 +48,7 @@ impl SignalNode {
         name: String,
         signal_power: f64,
         noise_temperature: f64,
-        cumulative_gain: f64,
+        cumulative_gain: Option<f64>,
     ) -> SignalNode {
         SignalNode {
             name,
@@ -72,8 +72,7 @@ impl SignalNode {
     }
 
     pub fn signal_to_noise_ratio(&self, bandwidth: f64) -> f64 {
-        let noise_power = self.noise_power(bandwidth);
-        self.signal_power - noise_power
+        self.signal_power - self.noise_power(bandwidth)
     }
 
     pub fn noise_power(&self, bandwidth: f64) -> f64 {
@@ -254,8 +253,6 @@ pub fn cascade_node(signal: SignalNode, block1: Block) -> SignalNode {
     let output_node_name = block1.name + " Output";
     let block_noise_temperature =
         rfconversions::noise::noise_temperature_from_noise_figure(block1.noise_figure);
-    let cumulative_gain_linear = rfconversions::power::db_to_linear(signal.cumulative_gain)
-        + rfconversions::power::db_to_linear(block1.gain);
 
     // handle compression point (simple approach with P1dB)
     let output_power_without_compression = signal.signal_power + block1.gain;
@@ -271,14 +268,28 @@ pub fn cascade_node(signal: SignalNode, block1: Block) -> SignalNode {
 
     let stage_gain = output_power - signal.signal_power;
 
-    let output_noise_temperature =
-        signal.noise_temperature + block_noise_temperature / cumulative_gain_linear;
+    let output_noise_temperature = if signal.cumulative_gain.is_some() {
+        // only benefits from gain before the block
+
+        let cumulative_gain_linear =
+            rfconversions::power::db_to_linear(signal.cumulative_gain.unwrap());
+        signal.noise_temperature + block_noise_temperature / cumulative_gain_linear
+    } else {
+        // only benefits from gain before the block
+        signal.noise_temperature + block_noise_temperature
+    };
+
+    let cumulative_gain = if signal.cumulative_gain.is_some() {
+        signal.cumulative_gain.unwrap() + stage_gain
+    } else {
+        stage_gain
+    };
 
     SignalNode {
         name: output_node_name,
         signal_power: output_power,
         noise_temperature: output_noise_temperature,
-        cumulative_gain: signal.cumulative_gain + stage_gain,
+        cumulative_gain: Some(cumulative_gain),
     }
 }
 
@@ -342,7 +353,7 @@ mod tests {
     #[test]
     fn one_part_node() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, Some(0.0));
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
             gain: 10.0,
@@ -363,7 +374,7 @@ mod tests {
     #[test]
     fn one_part_lna_node() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, Some(0.0));
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -385,7 +396,7 @@ mod tests {
     #[test]
     fn two_part_node() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, Some(0.0));
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -400,12 +411,12 @@ mod tests {
         };
         let intermediate_node = super::cascade_node(input_node, amplifier);
 
-        assert_eq!(intermediate_node.cumulative_gain, 30.0);
+        assert_eq!(intermediate_node.cumulative_gain.unwrap(), 30.0);
 
         let output_node = super::cascade_node(intermediate_node, attenuator);
 
         assert_eq!(output_node.signal_power, -6.0);
-        assert_eq!(output_node.cumulative_gain, 24.0);
+        assert_eq!(output_node.cumulative_gain.unwrap(), 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
@@ -418,7 +429,7 @@ mod tests {
     #[test]
     fn two_part_node_cascade_vector_return_output() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, Some(0.0));
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -435,7 +446,7 @@ mod tests {
         let output_node = super::cascade_vector_return_output(input_node, blocks);
 
         assert_eq!(output_node.signal_power, -6.0);
-        assert_eq!(output_node.cumulative_gain, 24.0);
+        assert_eq!(output_node.cumulative_gain.unwrap(), 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
@@ -448,7 +459,7 @@ mod tests {
     #[test]
     fn two_part_node_cascade_vector_return_vector() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, Some(0.0));
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -466,7 +477,7 @@ mod tests {
 
         let output_node = cascade_vector.last().unwrap();
         assert_eq!(output_node.signal_power, -6.0);
-        assert_eq!(output_node.cumulative_gain, 24.0);
+        assert_eq!(output_node.cumulative_gain.unwrap(), 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
@@ -479,7 +490,7 @@ mod tests {
     #[test]
     fn two_part_node_cascade_vector_return_vector_with_compression() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, 0.0);
+        let input_node = super::SignalNode::new("Input".to_string(), input_power, 290.0, Some(0.0));
         let low_noise_amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
             gain: 30.0,
@@ -503,7 +514,7 @@ mod tests {
 
         let output_node = cascade_vector.last().unwrap();
         assert_eq!(output_node.signal_power, 21.0);
-        assert_eq!(output_node.cumulative_gain, 51.0);
+        assert_eq!(output_node.cumulative_gain.unwrap(), 51.0);
 
         assert_eq!(output_node.name, "High Power Amplifier Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
@@ -584,7 +595,7 @@ mod tests {
         let config = load_config(&full_path_to_config.display().to_string()).unwrap();
         assert_eq!(config.blocks.len(), 3);
 
-        let input_node = SignalNode::new("Input".to_string(), config.input_power, 290.0, 0.0);
+        let input_node = SignalNode::new("Input".to_string(), config.input_power, 290.0, Some(0.0));
         let cascade = cascade_vector_return_vector(input_node, config.blocks);
 
         assert_eq!(cascade.last().unwrap().signal_power, 21.0);

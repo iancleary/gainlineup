@@ -111,6 +111,7 @@ pub fn generate_html_table(
     writeln!(file, "<th>Output P1dB (dBm)</th>")?;
     writeln!(file, "<th>Cumulative Gain (dB)</th>")?;
     writeln!(file, "<th>Cumulative NF (dB)</th>")?;
+    writeln!(file, "<th>Cumulative Noise Temperature (K)</th>")?;
     writeln!(file, "<th>Noise Spectral Density (dBm/Hz)</th>")?;
     writeln!(file, "<th>Noise Power (dBm)</th>")?;
     writeln!(file, "<th>Signal to Noise Ratio (dB)</th>")?;
@@ -128,8 +129,13 @@ pub fn generate_html_table(
             writeln!(file, "<td>{:.2}</td>", node.signal_power)?; // Input Power
             writeln!(file, "<td>{:.2}</td>", node.signal_power)?; // Output Power (same as input for the first node)
             writeln!(file, "<td>-</td>")?; // P1dB
-            writeln!(file, "<td>-</td>")?; // Cumulative Gain
-            writeln!(file, "<td>-</td>")?; // Cumulative NF
+            if let Some(cg) = node.cumulative_gain {
+                writeln!(file, "<td>{:.2}</td>", cg)?;
+            } else {
+                writeln!(file, "<td>-</td>")?;
+            }
+            writeln!(file, "<td>{:.2}</td>", node.cumulative_noise_figure())?; // Cumulative NF
+            writeln!(file, "<td>{:.2}</td>", node.noise_temperature)?; // Cumulative Noise Temperature
             writeln!(file, "<td>{:.2}</td>", node.noise_spectral_density())?; // Noise Spectral Density
             writeln!(file, "<td>{:.2}</td>", node.noise_power(bandwidth))?; // Noise Power
             writeln!(
@@ -150,8 +156,13 @@ pub fn generate_html_table(
             } else {
                 writeln!(file, "<td>-</td>")?;
             }
-            writeln!(file, "<td>{:.2}</td>", node.cumulative_gain)?; // Cumulative Gain
+            if let Some(cg) = node.cumulative_gain {
+                writeln!(file, "<td>{:.2}</td>", cg)?;
+            } else {
+                writeln!(file, "<td>-</td>")?;
+            }
             writeln!(file, "<td>{:.2}</td>", node.cumulative_noise_figure())?; // Cumulative NF
+            writeln!(file, "<td>{:.2}</td>", node.noise_temperature)?; // Cumulative Noise Temperature
             writeln!(file, "<td>{:.2}</td>", node.noise_spectral_density())?; // Noise Spectral Density
             writeln!(file, "<td>{:.2}</td>", node.noise_power(bandwidth))?; // Noise Power
             writeln!(

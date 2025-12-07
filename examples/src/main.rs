@@ -15,7 +15,7 @@ fn run() {
     // Add your code logic here
     const INPUT_POWER: f64 = 10.0; // dBm
 
-    let input_node = SignalNode::new("Input".to_string(), INPUT_POWER, 290.0, 0.0);
+    let input_node = SignalNode::new("Input".to_string(), INPUT_POWER, 290.0, Some(0.0));
     let cable_from_signal_generator = Block {
         name: "Cable Run from Signal Generator to DUT".to_string(),
         gain: -6.0,
@@ -78,6 +78,6 @@ fn run() {
     println!("Pout:\t{:>8.2} dBm", final_output_power);
     println!(
         "Gain:\t{:>8.2} dB",
-        full_cascade.last().unwrap().cumulative_gain
+        full_cascade.last().unwrap().cumulative_gain.unwrap()
     );
 }

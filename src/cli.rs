@@ -15,8 +15,14 @@ fn calculate_gainlineup(
     input_noise_temperature: Option<f64>,
 ) -> Vec<SignalNode> {
     let noise_temperature = input_noise_temperature.unwrap_or(290.0);
+    let cumulative_gain = None;
 
-    let input_node = SignalNode::new("Input".to_string(), input_power, noise_temperature, 0.0);
+    let input_node = SignalNode::new(
+        "Input".to_string(),
+        input_power,
+        noise_temperature,
+        cumulative_gain,
+    );
     let full_cascade: Vec<SignalNode> = cascade_vector_return_vector(input_node, blocks);
 
     full_cascade
@@ -216,7 +222,7 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>, bandwidth: f6
             println!("Input Power\t\t{:>8.2} dBm", input_power);
             println!("Block Gain:\t\t{:>8.2} dB", block_gain);
             println!("Block NF:\t\t{:>8.2} dB", blocks[i - 1].noise_figure);
-            println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain);
+            println!("Cumulative Gain:\t{:>8.2?} dB", node.cumulative_gain);
             println!(
                 "Cumulative Noise Figure:{:>8.2} dB",
                 node.cumulative_noise_figure()
@@ -225,7 +231,10 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>, bandwidth: f6
                 "Noise Spectral Density:\t{:>8.2} dBm/Hz",
                 node.noise_spectral_density()
             );
-            println!("Noise Power:\t\t{:>8.2} dBm", node.noise_power(bandwidth));
+            println!(
+                "Noise Power:\t\t{:>8.2} dBm",
+                node.noise_spectral_density() * bandwidth
+            );
             println!(
                 "Signal to Noise Ratio:\t{:>8.2} dB",
                 node.signal_to_noise_ratio(bandwidth)
@@ -241,7 +250,10 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>, bandwidth: f6
 
     let final_output_power = cascade.last().unwrap().signal_power;
     println!("Pout:\t{:>8.2} dBm", final_output_power);
-    println!("Gain:\t{:>8.2} dB", cascade.last().unwrap().cumulative_gain);
+    println!(
+        "Gain:\t{:>8.2?} dB",
+        cascade.last().unwrap().cumulative_gain
+    );
 }
 
 #[cfg(test)]
