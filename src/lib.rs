@@ -35,30 +35,72 @@ impl Block {
     }
 }
 
+// the input is independent of the blocks (e.g. a signal generator, what comes before the first block)
 #[derive(Clone, Debug)]
-pub struct SignalNode {
-    pub name: String,
-    pub signal_power: f64,            // dBm
-    pub noise_temperature: f64,       // cumulative, K
-    pub cumulative_gain: Option<f64>, // cumulative, dB (set to 0 at start)
+pub struct Input {
+    pub input_power: f64,
+    pub frequency: f64,
+    pub bandwidth: Option<f64>,
 }
 
-impl SignalNode {
+// nodes in the cascade, with the first node taking values from the Input struct and first Block struct
+#[derive(Clone, Debug)]
+pub struct CascadeBlock {
+    pub name: String,
+    pub input_signal_power: f64,            // dBm
+    pub output_signal_power: f64,           // dBm
+    pub gain: f64,                          // dB
+    pub cumulative_gain: f64,               // cumulative, dB (set to 0 at start)
+    pub noise_figure: f64,                  // dB
+    pub cumulative_noise_figure: f64,       // cumulative, dB 
+    pub output_1db_compression_point: Option<f64>, // dBm (defaults to None, which excludes any compression curve behavior)
+}
+
+impl CascadeBlock {
     pub fn new(
         name: String,
-        signal_power: f64,
-        noise_temperature: f64,
-        cumulative_gain: Option<f64>,
-    ) -> SignalNode {
-        SignalNode {
+        block: Block,
+        input_signal_power: f64,
+        cumulative_gain_at_input: f64, // at output of block
+        cumulative_noise_figure_at_input: f64, // at output of block
+    ) -> CascadeBlock {
+        CascadeBlock {
             name,
-            signal_power,
-            noise_temperature,
-            cumulative_gain,
+            input_signal_power,
+            // output_signal_power,
+            gain,
+            noise_figure,
+            input_cumulative_gain,
+            // output_cumulative_gain, // 
+            noise_figure,
+            input_cumulative_noise_figure,
+            // output_cumulative_noise_figure,
         }
     }
 
-    pub fn noise_spectral_density(&self) -> f64 {
+    // returns output power, handling compression point if present
+    pub fn output_signal_power(&self) -> f64 {
+        let output_power_without_compression = self.input_signal_power + self.block.gain;
+        
+        // this is a simple calculation, which could be upgrade to 
+        // use the compression curve of a block, if present,
+        // or the compression parameters from a piecewise amplifier model
+        // where there is a linear region, a compression region, and a saturation region
+        // those regions are defined by the compression point, a curve fit within te region of compression, and the saturation point
+        // the curve fit is a simple linear fit between the compression point and the saturation point
+        // the compression point is the point where the compression begins
+        // the saturation point is the point where the compression ends
+        // this probably would be a polynomial fit, but for initial documentation of the idea,
+        // it's a simple linear fit
+        if let Some(op1db) = self.block.output_1db_compression_point {
+            if output_power_without_compression > op1db + 1.0 {
+                return op1db + 1.0;
+            }
+        }
+        output_power_without_compression
+    }
+
+    pub fn output_noise_spectral_density(&self) -> f64 {
         // k in J/K, multiplied by 1000 for dBm
         let k_boltzmann = 1.380649e-23;
         let w_to_mw = 1000.0; // mW -> multiply W by 1000 to get mW count (dBW to dBm)
@@ -67,12 +109,21 @@ impl SignalNode {
         10.0 * noise_spectral_density_linear.log10() // dBm/Hz
     }
 
-    pub fn cumulative_noise_figure(&self) -> f64 {
-        rfconversions::noise::noise_figure_from_noise_temperature(self.noise_temperature)
+    // noise temperature is the noise temperature of the block itself
+    pub fn noise_temperature(&self) -> f64 {
+        rfconversions::noise::noise_temperature_from_noise_figure(self.noise_figure)
     }
 
-    pub fn signal_to_noise_ratio(&self, bandwidth: f64) -> f64 {
-        self.signal_power - self.noise_power(bandwidth)
+    // cumulative noise figure is the noise figure at the output of the block
+    pub fn cumulative_noise_figure(&self) -> f64 {
+        let block_noise_temperature = self.noise_temperature();
+        let cumulative_noise_temperature = block_noise_temperature + self.cumulative_noise_temperature;
+        rfconversions::noise::noise_figure_from_noise_temperature(noise_temperature)
+    }
+
+    // signal to noise ratio is the signal to noise ratio at the output of the block
+    pub fn output_signal_to_noise_ratio(&self, bandwidth: f64) -> f64 {
+        self.output_signal_power - self.noise_power(bandwidth)
     }
 
     pub fn noise_power(&self, bandwidth: f64) -> f64 {
@@ -237,16 +288,6 @@ pub fn touchstone_file_path_and_frequency_to_gain(file_path: String, frequency_i
     gain
 }
 
-// returns output power, handling compression point if present
-pub fn cascade(input_power: f64, block1: Block) -> f64 {
-    let output_power_without_compression = input_power + block1.gain;
-    if let Some(op1db) = block1.output_1db_compression_point {
-        if output_power_without_compression > op1db + 1.0 {
-            return op1db + 1.0;
-        }
-    }
-    output_power_without_compression
-}
 
 // returns output signal node, handling compression point if present
 pub fn cascade_node(signal: SignalNode, block1: Block) -> SignalNode {
