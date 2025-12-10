@@ -7,7 +7,7 @@ pub struct Block {
     pub name: String,
     pub gain: f64,                // dB
     pub noise_figure: f64,        // dB, nf would be ambiguous between noise factor and noise figure
-    pub output_p1db: Option<f64>, // dBm, compression point
+    pub output_p1db: Option<f64>, // dBm, output 1 dB compression point
 }
 
 impl fmt::Display for Block {

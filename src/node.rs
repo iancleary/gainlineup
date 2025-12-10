@@ -5,9 +5,9 @@ use crate::block::Block;
 
 #[derive(Clone, Debug)]
 pub struct SignalNode {
-    pub name: String,
+    pub name: String,           // name of node, like "Input" or "Amplifier 1 Output"
     pub power: f64,             // dBm
-    pub noise_temperature: f64, // cumulative, dB
+    pub noise_temperature: f64, // cumulative, K
     pub cumulative_gain: f64,   // cumulative, dB (set to 0 at start)
 }
 
