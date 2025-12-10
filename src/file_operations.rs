@@ -2,7 +2,8 @@ use std::path::Path;
 
 #[derive(Debug)]
 pub struct FilePathConfig {
-    pub absolute_path: bool,
+    pub unix_absolute_path: bool,
+    pub windows_absolute_path: bool,
     pub relative_path_with_separators: bool,
     pub bare_filename: bool,
 }
@@ -12,36 +13,59 @@ pub struct FilePathConfig {
 // this function help us adjust to ./measured.s2p so logic is easier later
 pub fn get_file_path_config(path_str: &str) -> FilePathConfig {
     let path = Path::new(path_str);
+    let mut unix_absolute_path = false;
+    let mut windows_absolute_path = false;
+    let mut relative_path_with_separators = false;
+    let mut bare_filename = false;
 
-    if path.is_absolute() {
-        // /home/user/files/measured.s2p, etc.
-        println!("'{}' is an Absolute path.", path_str);
-        FilePathConfig {
-            absolute_path: true,
-            relative_path_with_separators: false,
-            bare_filename: false,
-        }
+    // Manual detection to be cross-platform safe
+    // 1. Unix Absolute
+    if path_str.starts_with('/') {
+        unix_absolute_path = true;
     }
-    // If it's not absolute, we check the number of parts
+    // 2. Windows Absolute
+    // Check for drive letter (e.g., C:\ or C:/)
+    else if path_str.len() >= 3
+        && path_str.chars().next().unwrap().is_ascii_alphabetic()
+        && path_str.chars().nth(1).unwrap() == ':'
+        && (path_str.chars().nth(2).unwrap() == '\\' || path_str.chars().nth(2).unwrap() == '/')
+    {
+        windows_absolute_path = true;
+    }
+    // Check for UNC path (e.g. \\server or //server, but // could be multiple slashes on unix so be careful)
+    // On Unix, // is just root, mostly. But usually we want to treat \\ as windows UNC.
+    else if path_str.starts_with(r"\\") {
+        windows_absolute_path = true;
+    }
+    // 3. Relative with separators (nested)
     else if path.components().count() > 1 {
         // files/measured.s2p, etc.
+        relative_path_with_separators = true;
+    }
+    // 4. Bare filename
+    else {
+        // measured.s2p, etc.
+        bare_filename = true;
+    }
+
+    if unix_absolute_path {
+        println!("'{}' is a Unix Absolute path.", path_str);
+    } else if windows_absolute_path {
+        println!("'{}' is a Windows Absolute path.", path_str);
+    } else if relative_path_with_separators {
         println!(
             "'{}' is a Relative path with separators (nested).",
             path_str
         );
-        FilePathConfig {
-            absolute_path: false,
-            relative_path_with_separators: true,
-            bare_filename: false,
-        }
     } else {
-        // measured.s2p, etc.
         println!("'{}' is a Bare filename (no separators).", path_str);
-        FilePathConfig {
-            absolute_path: false,
-            relative_path_with_separators: false,
-            bare_filename: true,
-        }
+    }
+
+    FilePathConfig {
+        unix_absolute_path,
+        windows_absolute_path,
+        relative_path_with_separators,
+        bare_filename,
     }
 }
 
@@ -85,7 +109,8 @@ mod tests {
     #[test]
     fn test_get_file_path_config_absolute_path() {
         let config = get_file_path_config("/home/user/files/measured.s2p");
-        assert!(config.absolute_path);
+        assert!(config.unix_absolute_path);
+        assert!(!config.windows_absolute_path);
         assert!(!config.relative_path_with_separators);
         assert!(!config.bare_filename);
     }
@@ -93,7 +118,8 @@ mod tests {
     #[test]
     fn test_get_file_path_config_relative_path_with_separators() {
         let config = get_file_path_config("files/measured.s2p");
-        assert!(!config.absolute_path);
+        assert!(!config.unix_absolute_path);
+        assert!(!config.windows_absolute_path);
         assert!(config.relative_path_with_separators);
         assert!(!config.bare_filename);
     }
@@ -101,7 +127,8 @@ mod tests {
     #[test]
     fn test_get_file_path_config_bare_filename() {
         let config = get_file_path_config("measured.s2p");
-        assert!(!config.absolute_path);
+        assert!(!config.unix_absolute_path);
+        assert!(!config.windows_absolute_path);
         assert!(!config.relative_path_with_separators);
         assert!(config.bare_filename);
     }
@@ -109,7 +136,8 @@ mod tests {
     #[test]
     fn test_get_file_path_config_nested_relative_path() {
         let config = get_file_path_config("a/b/c/measured.s2p");
-        assert!(!config.absolute_path);
+        assert!(!config.unix_absolute_path);
+        assert!(!config.windows_absolute_path);
         assert!(config.relative_path_with_separators);
         assert!(!config.bare_filename);
     }
@@ -119,7 +147,8 @@ mod tests {
         // On Unix systems, Windows paths with backslashes are treated as bare filenames
         // because backslash is not a path separator on Unix
         let config = get_file_path_config("C:\\Users\\test\\file.s2p");
-        assert!(config.absolute_path);
+        assert!(!config.unix_absolute_path);
+        assert!(config.windows_absolute_path);
         assert!(!config.relative_path_with_separators);
         assert!(!config.bare_filename);
     }
@@ -160,9 +189,10 @@ mod tests {
         // On Unix systems, this is treated as a bare filename because
         // backslashes are not path separators on Unix
         let config = get_file_path_config("\\\\server\\mount\\folder\\file.s2p");
-        assert!(!config.absolute_path);
+        assert!(!config.unix_absolute_path);
+        assert!(config.windows_absolute_path);
         assert!(!config.relative_path_with_separators);
-        assert!(config.bare_filename);
+        assert!(!config.bare_filename);
     }
 
     #[test]
@@ -206,7 +236,8 @@ mod tests {
     fn test_get_file_path_config_filename_with_spaces() {
         // Filename with spaces should be recognized as bare filename
         let config = get_file_path_config("my measurements.s2p");
-        assert!(!config.absolute_path);
+        assert!(!config.unix_absolute_path);
+        assert!(!config.windows_absolute_path);
         assert!(!config.relative_path_with_separators);
         assert!(config.bare_filename);
     }
@@ -215,7 +246,8 @@ mod tests {
     fn test_get_file_path_config_relative_path_with_spaces() {
         // Relative path with spaces should be recognized with separators
         let config = get_file_path_config("my files/measurements.s2p");
-        assert!(!config.absolute_path);
+        assert!(!config.unix_absolute_path);
+        assert!(!config.windows_absolute_path);
         assert!(config.relative_path_with_separators);
         assert!(!config.bare_filename);
     }

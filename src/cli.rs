@@ -251,10 +251,13 @@ impl Command {
                 // absolute path, append .html, remove woindows UNC Prefix if present
                 // relative path with separators, just append .hmtl
                 // bare_filename, prepend ./ and append .html
-                let output_html_path = if file_path_config.absolute_path {
+                let output_html_path = if file_path_config.unix_absolute_path
+                    || file_path_config.windows_absolute_path
+                {
                     let mut file_path_html = format!("{}.html", &file_path);
                     // Remove the UNC prefix on Windows if present
-                    if cfg!(target_os = "windows") && file_path_html.starts_with(r"\\?\") {
+                    if file_path_config.windows_absolute_path && file_path_html.starts_with(r"\\?\")
+                    {
                         file_path_html = file_path_html[4..].to_string();
                     }
                     file_path_html
