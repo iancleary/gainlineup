@@ -25,9 +25,9 @@ impl Default for SignalNode {
     fn default() -> Self {
         Self {
             name: String::from("default"),
-            power: 0.0,
-            noise_temperature: 290.0,
-            cumulative_gain: 0.0,
+            power: 0.0,               // placeholder value, you should change this
+            noise_temperature: 290.0, // commonly used for room temperature
+            cumulative_gain: 0.0,     // default assuming start of cascade
         }
     }
 }
