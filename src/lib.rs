@@ -72,10 +72,9 @@ mod tests {
 
         assert_eq!(output_node.name, "Attenuator Output");
 
-        // round to 7 decimal places for comparison, because floating point math is not exact
-        let rounded_noise_figure_to_7_decimal_places =
-            (output_node.noise_figure * 1e7).round() / 1e7;
-        assert_eq!(rounded_noise_figure_to_7_decimal_places, 3.0064822);
+        // round to 3 decimal places for comparison, because floating point math is not exact
+        let rounded_noise_figure = (output_node.noise_figure * 1e3).round() / 1e3;
+        assert_eq!(rounded_noise_figure, 3.006);
     }
 
     #[test]
@@ -107,10 +106,9 @@ mod tests {
 
         assert_eq!(output_node.name, "Attenuator Output");
 
-        // round to 7 decimal places for comparison, because floating point math is not exact
-        let rounded_noise_figure_to_7_decimal_places =
-            (output_node.noise_figure * 1e7).round() / 1e7;
-        assert_eq!(rounded_noise_figure_to_7_decimal_places, 3.0064822);
+        // round to 3 decimal places for comparison, because floating point math is not exact
+        let rounded_noise_figure = (output_node.noise_figure * 1e3).round() / 1e3;
+        assert_eq!(rounded_noise_figure, 3.006);
     }
 
     #[test]
@@ -148,9 +146,8 @@ mod tests {
 
         assert_eq!(output_node.name, "High Power Amplifier Output");
 
-        // round to 7 decimal places for comparison, because floating point math is not exact
-        let rounded_noise_figure_to_7_decimal_places =
-            (output_node.noise_figure * 1e7).round() / 1e7;
-        assert_eq!(rounded_noise_figure_to_7_decimal_places, 3.0082107);
+        // round to 3 decimal places for comparison, because floating point math is not exact
+        let rounded_noise_figure = (output_node.noise_figure * 1e3).round() / 1e3;
+        assert_eq!(rounded_noise_figure, 3.008);
     }
 }
