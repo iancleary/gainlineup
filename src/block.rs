@@ -1,29 +1,53 @@
+use std::default::Default;
+use std::fmt;
 
 // the definition of a block in the cascade
 #[derive(Clone, Debug)]
 pub struct Block {
     pub name: String,
-    pub gain: f64,                                 // dB
-    pub noise_figure: f64, // dB, nf would be ambiguous between noise factor and noise figure
+    pub gain: f64,                // dB
+    pub noise_figure: f64,        // dB, nf would be ambiguous between noise factor and noise figure
     pub output_p1db: Option<f64>, // dBm, compression point
 }
 
-impl Block {
-    pub fn default() -> Block {
-        Block {
+impl fmt::Display for Block {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.output_p1db.is_some() {
+            write!(
+                f,
+                "Block {{ name: {}, gain: {}, noise_figure: {}, output_p1db: {} }}",
+                self.name,
+                self.gain,
+                self.noise_figure,
+                self.output_p1db.unwrap()
+            )
+        } else {
+            write!(
+                f,
+                "Block {{ name: {}, gain: {}, noise_figure: {} }}",
+                self.name, self.gain, self.noise_figure
+            )
+        }
+    }
+}
+
+impl Default for Block {
+    fn default() -> Self {
+        Self {
             name: String::from("default"),
             gain: 0.0,
             noise_figure: 0.0,
             output_p1db: None,
         }
     }
-
+}
+impl Block {
     pub fn noise_temperature(&self) -> f64 {
         rfconversions::noise::noise_temperature_from_noise_figure(self.noise_figure)
     }
 
     pub fn output_power(&self, input_power: f64) -> f64 {
-        // this is a simple calculation, which could be upgrade to 
+        // this is a simple calculation, which could be upgrade to
         // use the compression curve of a block, if present,
         // or the compression parameters from a piecewise amplifier model
         // where there is a linear region, a compression region, and a saturation region

@@ -1,12 +1,12 @@
+mod block;
 pub mod cli;
 mod file_operations;
+mod node;
 mod open;
 mod plot;
-pub mod node;
-pub mod block;
 
-use node::SignalNode;
-use block::Block;
+pub use block::Block;
+pub use node::SignalNode;
 
 // returns final output signal node, handling compression point if present
 pub fn cascade_vector_return_output(input: SignalNode, blocks: Vec<Block>) -> SignalNode {
@@ -26,12 +26,11 @@ pub fn cascade_vector_return_vector(
     let mut cascading_signal = input_signal;
     let mut node_vector: Vec<SignalNode> = vec![cascading_signal.clone()];
     for block in blocks.iter() {
-        cascading_signal = cascading_signal.cascade_block(&block);
+        cascading_signal = cascading_signal.cascade_block(block);
         node_vector.push(cascading_signal.clone());
     }
     node_vector
 }
-
 
 #[cfg(test)]
 mod tests {

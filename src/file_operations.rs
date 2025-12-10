@@ -29,12 +29,10 @@ pub fn get_file_path_config(path_str: &str) -> FilePathConfig {
         && path_str.chars().next().unwrap().is_ascii_alphabetic()
         && path_str.chars().nth(1).unwrap() == ':'
         && (path_str.chars().nth(2).unwrap() == '\\' || path_str.chars().nth(2).unwrap() == '/')
+        // Check for UNC path (e.g. \\server or //server, but // could be multiple slashes on unix so be careful)
+        // On Unix, // is just root, mostly. But usually we want to treat \\ as windows UNC.
+        || path_str.starts_with(r"\\")
     {
-        windows_absolute_path = true;
-    }
-    // Check for UNC path (e.g. \\server or //server, but // could be multiple slashes on unix so be careful)
-    // On Unix, // is just root, mostly. But usually we want to treat \\ as windows UNC.
-    else if path_str.starts_with(r"\\") {
         windows_absolute_path = true;
     }
     // 3. Relative with separators (nested)

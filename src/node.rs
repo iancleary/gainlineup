@@ -1,5 +1,7 @@
+use std::default::Default;
+use std::fmt;
+
 use crate::block::Block;
-use rfconversions;
 
 #[derive(Clone, Debug)]
 pub struct SignalNode {
@@ -9,8 +11,34 @@ pub struct SignalNode {
     pub cumulative_gain: f64,   // cumulative, dB (set to 0 at start)
 }
 
+impl fmt::Display for SignalNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "SignalNode {{ name: {}, power: {}, noise_temperature: {}, cumulative_gain: {} }}",
+            self.name, self.power, self.noise_temperature, self.cumulative_gain
+        )
+    }
+}
+
+impl Default for SignalNode {
+    fn default() -> Self {
+        Self {
+            name: String::from("default"),
+            power: 0.0,
+            noise_temperature: 290.0,
+            cumulative_gain: 0.0,
+        }
+    }
+}
+
 impl SignalNode {
-    pub fn new(name: String, power: f64, noise_temperature: f64, cumulative_gain: f64) -> SignalNode {
+    pub fn new(
+        name: String,
+        power: f64,
+        noise_temperature: f64,
+        cumulative_gain: f64,
+    ) -> SignalNode {
         SignalNode {
             name,
             power,
@@ -19,24 +47,7 @@ impl SignalNode {
         }
     }
 
-    pub fn default() -> SignalNode {
-        SignalNode {
-            name: String::from("default"),
-            power: 0.0,
-            noise_temperature: 290.0,
-            cumulative_gain: 0.0,
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        format!(
-            "SignalNode {{ name: {}, power: {}, noise_temperature: {}, cumulative_gain: {} }}",
-            self.name, self.power, self.noise_temperature, self.cumulative_gain
-        )
-    }
-
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
-
         let output_node_name = block.name.clone() + " Output";
 
         let block_noise_temperature =
@@ -71,7 +82,6 @@ impl SignalNode {
         rfconversions::noise::noise_figure_from_noise_temperature(self.noise_temperature)
     }
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -16,7 +16,6 @@ use serde::Deserialize;
 
 use rfconversions;
 
-
 // the structure of the toml files
 //
 // Config is the top level toml file
