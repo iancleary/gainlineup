@@ -6,7 +6,7 @@ type = "explicit"
 name = "Low Noise Amplifier"
 gain = 30.0
 noise_figure = 3.0
-output_1db_compression_point = 5.0
+output_p1db = 5.0
 
 [[blocks]]
 type = "explicit"
@@ -19,4 +19,4 @@ type = "explicit"
 name = "High Power Amplifier"
 gain = 30.0
 noise_figure = 3.0
-output_1db_compression_point = 20.0
+output_p1db = 20.0

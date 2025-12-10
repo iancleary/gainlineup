@@ -1,15 +1,173 @@
 use std::env;
+use std::fs;
+use std::path::Path;
 use std::process;
 
 // this cannot be crate::Network because of how Cargo works,
 // since cargo/rust treats lib.rs and main.rs as separate crates
 use crate::cascade_vector_return_vector;
 use crate::file_operations;
-use crate::load_config;
 use crate::Block;
 use crate::SignalNode;
 
+use touchstone::Network;
+
+use serde::Deserialize;
+
 use rfconversions;
+
+// the structure of the toml files
+//
+// Config is the top level toml file
+//
+#[derive(Debug)]
+pub struct Config {
+    pub input_power: f64,
+    pub frequency: f64,
+    pub noise_temperature: Option<f64>,
+    pub blocks: Vec<Block>,
+}
+
+#[derive(Deserialize, Debug)]
+struct IncludedConfig {
+    blocks: Vec<BlockConfig>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum BlockConfig {
+    Explicit {
+        name: String,
+        gain: f64,
+        noise_figure: f64,
+        output_p1db: Option<f64>,
+    },
+    Touchstone {
+        file_path: String,
+        name: String,
+        noise_figure: Option<f64>,
+        output_p1db: Option<f64>,
+    },
+    Include {
+        path: String,
+    },
+}
+
+pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
+    // println!("\n----------------------------\n");
+    // println!("Loading Config: {}", path);
+    let config_content = fs::read_to_string(path)?;
+    // println!("Config Content: {}", config_content);
+
+    // We need an intermediate struct to parse the TOML because Config now holds Vec<Block>
+    // but the TOML contains BlockConfigs
+    #[derive(Deserialize)]
+    struct IntermediateConfig {
+        input_power: f64,
+        frequency: f64,
+        noise_temperature: Option<f64>,
+        blocks: Vec<BlockConfig>,
+    }
+
+    let intermediate_config: IntermediateConfig = toml::from_str(&config_content)?;
+    // println!("Config: {:#?}", config);
+
+    let mut blocks = Vec::new();
+    let config_path = Path::new(path);
+    let base_dir = config_path.parent().unwrap_or_else(|| Path::new("."));
+
+    load_blocks_recursive(
+        intermediate_config.blocks,
+        intermediate_config.frequency,
+        &mut blocks,
+        base_dir,
+    )?;
+
+    // println!("\n----------------------------\n");
+
+    Ok(Config {
+        input_power: intermediate_config.input_power,
+        frequency: intermediate_config.frequency,
+        noise_temperature: intermediate_config.noise_temperature,
+        blocks,
+    })
+}
+
+fn load_blocks_recursive(
+    block_configs: Vec<BlockConfig>,
+    frequency: f64,
+    blocks: &mut Vec<Block>,
+    base_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for block_config in block_configs {
+        match block_config {
+            BlockConfig::Explicit {
+                name,
+                gain,
+                noise_figure,
+                output_p1db,
+            } => {
+                blocks.push(Block {
+                    name,
+                    gain,
+                    noise_figure,
+                    output_p1db,
+                });
+            }
+            BlockConfig::Touchstone {
+                file_path,
+                name,
+                noise_figure,
+                output_p1db,
+            } => {
+                // Touchstone files might also be relative to the config file
+                let full_path = base_dir.join(&file_path);
+                let gain = touchstone_file_path_and_frequency_to_gain(
+                    full_path.to_string_lossy().to_string(),
+                    frequency,
+                );
+
+                let noise_figure_default = -gain; // only handles passives right now
+                let output_p1db_default = 99.0; // 99 dBm
+
+                let final_noise_figure = noise_figure.unwrap_or(noise_figure_default);
+                let final_output_p1db = output_p1db.or(Some(output_p1db_default));
+
+                blocks.push(Block {
+                    name,
+                    gain,
+                    noise_figure: final_noise_figure,
+                    output_p1db: final_output_p1db,
+                });
+            }
+            BlockConfig::Include { path } => {
+                let included_path = base_dir.join(&path);
+                // println!("Loading Included Config: {}", included_path.display());
+                let content = fs::read_to_string(&included_path)?;
+                let included: IncludedConfig = toml::from_str(&content)?;
+
+                let new_base_dir = included_path.parent().unwrap_or_else(|| Path::new("."));
+                load_blocks_recursive(included.blocks, frequency, blocks, new_base_dir)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn touchstone_file_path_and_frequency_to_gain(file_path: String, frequency_in_hz: f64) -> f64 {
+    let s2p = Network::new(file_path.clone());
+
+    let gain_vector = s2p.s_db(2, 1); // uses 1-based indexing
+
+    let gain = gain_vector
+        .iter()
+        .find(|frequency_db| frequency_db.frequency == frequency_in_hz)
+        .unwrap()
+        .s_db
+        .decibel();
+
+    gain
+}
 
 fn calculate_gainlineup(
     input_power: f64,
@@ -28,10 +186,10 @@ fn calculate_gainlineup(
     full_cascade
 }
 
-pub struct Config {}
+pub struct Command {}
 
-impl Config {
-    pub fn run(args: &[String]) -> Result<Config, Box<dyn std::error::Error>> {
+impl Command {
+    pub fn run(args: &[String]) -> Result<Command, Box<dyn std::error::Error>> {
         if args.len() < 2 {
             return Err("not enough arguments".into());
         }
@@ -92,10 +250,13 @@ impl Config {
                 // absolute path, append .html, remove woindows UNC Prefix if present
                 // relative path with separators, just append .hmtl
                 // bare_filename, prepend ./ and append .html
-                let output_html_path = if file_path_config.absolute_path {
+                let output_html_path = if file_path_config.unix_absolute_path
+                    || file_path_config.windows_absolute_path
+                {
                     let mut file_path_html = format!("{}.html", &file_path);
                     // Remove the UNC prefix on Windows if present
-                    if cfg!(target_os = "windows") && file_path_html.starts_with(r"\\?\") {
+                    if file_path_config.windows_absolute_path && file_path_html.starts_with(r"\\?\")
+                    {
                         file_path_html = file_path_html[4..].to_string();
                     }
                     file_path_html
@@ -143,7 +304,7 @@ impl Config {
             }
         }
 
-        Ok(Config {})
+        Ok(Command {})
     }
 }
 
@@ -268,13 +429,13 @@ mod tests {
             String::from("program_name"),
             toml_path.to_str().unwrap().to_string(),
         ];
-        let _cli_run = Config::run(&args).unwrap();
+        let _cli_run = Command::run(&args).unwrap();
     }
 
     #[test]
     fn test_config_build_not_enough_args() {
         let args = vec![String::from("program_name")];
-        let result = Config::run(&args);
+        let result = Command::run(&args);
         assert!(result.is_err());
     }
 

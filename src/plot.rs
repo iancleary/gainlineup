@@ -116,7 +116,7 @@ pub fn generate_html_table(
             writeln!(file, "<td>{:.2}</td>", block.noise_figure)?;
             writeln!(file, "<td>{:.2}</td>", actual_input_power)?;
             writeln!(file, "<td>{:.2}</td>", node.power)?;
-            if let Some(p1db) = block.output_1db_compression_point {
+            if let Some(p1db) = block.output_p1db {
                 writeln!(file, "<td>{:.2}</td>", p1db)?;
             } else {
                 writeln!(file, "<td>-</td>")?;
@@ -137,3 +137,6 @@ pub fn generate_html_table(
 
     Ok(())
 }
+
+// run bash update_plots.sh to update all plots, and show this working
+// no automated testing planned

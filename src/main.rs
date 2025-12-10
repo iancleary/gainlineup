@@ -6,7 +6,7 @@ use gainlineup::cli;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let _ = cli::Config::run(&args).unwrap_or_else(|err| {
+    let _ = cli::Command::run(&args).unwrap_or_else(|err| {
         println!();
         cli::print_error(&err.to_string()); //print at the top, but might be lost or hard to read
         println!();
