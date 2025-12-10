@@ -137,3 +137,6 @@ pub fn generate_html_table(
 
     Ok(())
 }
+
+// run bash update_plots.sh to update all plots, and show this working
+// no automated testing planned
