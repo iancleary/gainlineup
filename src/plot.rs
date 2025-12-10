@@ -8,7 +8,6 @@ use crate::SignalNode;
 pub fn generate_html_table(
     input_power: f64,
     frequency: f64,
-    input_noise_temperature: Option<f64>,
     cascade: &[SignalNode],
     blocks: &[Block],
     output_path_str: &str,
@@ -64,20 +63,6 @@ pub fn generate_html_table(
     writeln!(file, "<td>{:.2}</td>", freq_val)?;
     writeln!(file, "<td>{}</td>", freq_unit)?;
     writeln!(file, "</tr>")?;
-    writeln!(file, "<tr>")?;
-    let noise_temp_label = if input_noise_temperature.is_some() {
-        "Input Noise Temperature"
-    } else {
-        "Input Noise Temperature (Default)"
-    };
-    writeln!(file, "<td>{}</td>", noise_temp_label)?;
-    writeln!(
-        file,
-        "<td>{:.2}</td>",
-        input_noise_temperature.unwrap_or(290.0)
-    )?;
-    writeln!(file, "<td>K</td>")?;
-    writeln!(file, "</tr>")?;
     writeln!(file, "</table>")?;
     writeln!(file, "<br>")?;
 
@@ -95,39 +80,25 @@ pub fn generate_html_table(
     writeln!(file, "<th>Cumulative NF (dB)</th>")?;
     writeln!(file, "</tr>")?;
 
-    for (i, node) in cascade.iter().enumerate() {
+    for (i, node) in cascade.iter().enumerate().skip(1) {
         writeln!(file, "<tr>")?;
         writeln!(file, "<td>{}</td>", i)?;
         writeln!(file, "<td>{}</td>", node.name)?;
 
-        if i == 0 {
-            writeln!(file, "<td>-</td>")?;
-            writeln!(file, "<td>-</td>")?;
-            writeln!(file, "<td>{:.2}</td>", node.power)?; // Input Power
-            writeln!(file, "<td>{:.2}</td>", node.power)?; // Output Power
-            writeln!(file, "<td>-</td>")?; // P1dB
-            writeln!(file, "<td>-</td>")?; // Cumulative Gain
-            writeln!(file, "<td>-</td>")?; // Cumulative NF
-        } else {
-            let block = &blocks[i - 1];
-            let actual_input_power = cascade[i - 1].power;
+        let block = &blocks[i - 1];
+        let actual_input_power = cascade[i - 1].power;
 
-            writeln!(file, "<td>{:.2}</td>", block.gain)?;
-            writeln!(file, "<td>{:.2}</td>", block.noise_figure)?;
-            writeln!(file, "<td>{:.2}</td>", actual_input_power)?;
-            writeln!(file, "<td>{:.2}</td>", node.power)?;
-            if let Some(p1db) = block.output_p1db {
-                writeln!(file, "<td>{:.2}</td>", p1db)?;
-            } else {
-                writeln!(file, "<td>-</td>")?;
-            }
-            writeln!(file, "<td>{:.2}</td>", node.cumulative_gain)?;
-            writeln!(
-                file,
-                "<td>{:.2}</td>",
-                rfconversions::noise::noise_figure_from_noise_temperature(node.noise_temperature)
-            )?;
+        writeln!(file, "<td>{:.2}</td>", block.gain)?;
+        writeln!(file, "<td>{:.2}</td>", block.noise_figure)?;
+        writeln!(file, "<td>{:.2}</td>", actual_input_power)?;
+        writeln!(file, "<td>{:.2}</td>", node.power)?;
+        if let Some(p1db) = block.output_p1db {
+            writeln!(file, "<td>{:.2}</td>", p1db)?;
+        } else {
+            writeln!(file, "<td>-</td>")?;
         }
+        writeln!(file, "<td>{:.2}</td>", node.cumulative_gain)?;
+        writeln!(file, "<td>{:.2}</td>", node.noise_figure)?;
         writeln!(file, "</tr>")?;
     }
 

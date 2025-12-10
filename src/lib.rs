@@ -40,7 +40,7 @@ mod tests {
         let input_node = super::SignalNode {
             name: "Input".to_string(),
             power: input_power,
-            noise_temperature: 290.0,
+            noise_figure: 0.0,
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
         let amplifier = super::Block {
@@ -62,11 +62,7 @@ mod tests {
         assert_eq!(output_node.cumulative_gain, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
-        // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
-        let output_noise_figure = rfconversions::noise::noise_figure_from_noise_temperature(
-            output_node.noise_temperature,
-        );
-        assert_eq!(output_noise_figure, 3.018922107070044);
+        assert_eq!(output_node.noise_figure, 3.018922107070044);
     }
 
     #[test]
@@ -75,7 +71,7 @@ mod tests {
         let input_node = super::SignalNode {
             name: "Input".to_string(),
             power: input_power,
-            noise_temperature: 290.0,
+            noise_figure: 0.0,
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
         let amplifier = super::Block {
@@ -98,11 +94,7 @@ mod tests {
         assert_eq!(output_node.cumulative_gain, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
-        // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
-        let output_noise_figure = rfconversions::noise::noise_figure_from_noise_temperature(
-            output_node.noise_temperature,
-        );
-        assert_eq!(output_noise_figure, 3.018922107070044);
+        assert_eq!(output_node.noise_figure, 3.018922107070044);
     }
 
     #[test]
@@ -111,7 +103,7 @@ mod tests {
         let input_node = super::SignalNode {
             name: "Input".to_string(),
             power: input_power,
-            noise_temperature: 290.0,
+            noise_figure: 0.0,
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
         let low_noise_amplifier = super::Block {
@@ -140,10 +132,6 @@ mod tests {
         assert_eq!(output_node.cumulative_gain, 51.0);
 
         assert_eq!(output_node.name, "High Power Amplifier Output");
-        // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
-        let output_noise_figure = rfconversions::noise::noise_figure_from_noise_temperature(
-            output_node.noise_temperature,
-        );
-        assert_eq!(output_noise_figure, 3.020645644372404);
+        assert_eq!(output_node.noise_figure, 3.020645644372404);
     }
 }

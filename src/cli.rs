@@ -14,8 +14,6 @@ use touchstone::Network;
 
 use serde::Deserialize;
 
-use rfconversions;
-
 // the structure of the toml files
 //
 // Config is the top level toml file
@@ -169,15 +167,11 @@ pub fn touchstone_file_path_and_frequency_to_gain(file_path: String, frequency_i
     gain
 }
 
-fn calculate_gainlineup(
-    input_power: f64,
-    blocks: Vec<Block>,
-    input_noise_temperature: Option<f64>,
-) -> Vec<SignalNode> {
+fn calculate_gainlineup(input_power: f64, blocks: Vec<Block>) -> Vec<SignalNode> {
     let input_node = SignalNode {
         name: "Input".to_string(),
         power: input_power,
-        noise_temperature: input_noise_temperature.unwrap_or(290.0),
+        noise_figure: blocks[0].noise_figure,
         cumulative_gain: 0.0,
     };
 
@@ -231,11 +225,7 @@ impl Command {
         match load_config(&full_path_to_config.display().to_string()) {
             Ok(config) => {
                 // println!("\n----------------------------\n");
-                let cascade = calculate_gainlineup(
-                    config.input_power,
-                    config.blocks.clone(),
-                    config.noise_temperature,
-                );
+                let cascade = calculate_gainlineup(config.input_power, config.blocks.clone());
                 // println!("\n----------------------------\n");
                 print_cascade(cascade.clone(), config.blocks.clone());
 
@@ -285,7 +275,6 @@ impl Command {
                 match crate::plot::generate_html_table(
                     config.input_power,
                     config.frequency,
-                    config.noise_temperature,
                     &cascade,
                     &config.blocks,
                     output_html_path_str,
@@ -379,10 +368,7 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
             println!("Block Gain:\t\t{:>8.2} dB", block_gain);
             println!("Block NF:\t\t{:>8.2} dB", blocks[i - 1].noise_figure);
             println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain);
-            println!(
-                "Cumulative Noise Figure:{:>8.2} dB",
-                rfconversions::noise::noise_figure_from_noise_temperature(node.noise_temperature)
-            );
+            println!("Cumulative Noise Figure:{:>8.2} dB", node.noise_figure);
             println!("Output Power\t\t{:>8.2} dBm", node.power);
         }
     }
