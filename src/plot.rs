@@ -80,13 +80,18 @@ pub fn generate_html_table(
     writeln!(file, "<th>Cumulative NF (dB)</th>")?;
     writeln!(file, "</tr>")?;
 
-    for (i, node) in cascade.iter().enumerate().skip(1) {
+    for (i, node) in cascade.iter().enumerate() {
         writeln!(file, "<tr>")?;
         writeln!(file, "<td>{}</td>", i)?;
         writeln!(file, "<td>{}</td>", node.name)?;
 
-        let block = &blocks[i - 1];
-        let actual_input_power = cascade[i - 1].power;
+        let block = &blocks[i];
+
+        let actual_input_power = if i == 0 {
+            input_power
+        } else {
+            cascade[i - 1].power
+        };
 
         writeln!(file, "<td>{:.2}</td>", block.gain)?;
         writeln!(file, "<td>{:.2}</td>", block.noise_figure)?;
