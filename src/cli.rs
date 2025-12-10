@@ -8,6 +8,7 @@ use std::process;
 use crate::cascade_vector_return_vector;
 use crate::file_operations;
 use crate::Block;
+use crate::Input;
 use crate::SignalNode;
 
 use touchstone::Network;
@@ -167,15 +168,8 @@ pub fn touchstone_file_path_and_frequency_to_gain(file_path: String, frequency_i
     gain
 }
 
-fn calculate_gainlineup(input_power: f64, blocks: Vec<Block>) -> Vec<SignalNode> {
-    let input_node = SignalNode {
-        name: "Input".to_string(),
-        power: input_power,
-        noise_figure: blocks[0].noise_figure,
-        cumulative_gain: 0.0,
-    };
-
-    let full_cascade: Vec<SignalNode> = cascade_vector_return_vector(input_node, blocks);
+fn calculate_gainlineup(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
+    let full_cascade: Vec<SignalNode> = cascade_vector_return_vector(input, blocks);
 
     full_cascade
 }
@@ -225,7 +219,13 @@ impl Command {
         match load_config(&full_path_to_config.display().to_string()) {
             Ok(config) => {
                 // println!("\n----------------------------\n");
-                let cascade = calculate_gainlineup(config.input_power, config.blocks.clone());
+
+                let input = Input {
+                    power: config.input_power,
+                    frequency: config.frequency,
+                    bandwidth: 0.0, // CW
+                };
+                let cascade = calculate_gainlineup(input, config.blocks.clone());
                 // println!("\n----------------------------\n");
                 print_cascade(cascade.clone(), config.blocks.clone());
 

@@ -1,32 +1,42 @@
 mod block;
 pub mod cli;
 mod file_operations;
+mod input;
 mod node;
 mod open;
 mod plot;
 
 pub use block::Block;
+pub use input::Input;
 pub use node::SignalNode;
 
 // returns final output signal node, handling compression point if present
-pub fn cascade_vector_return_output(input: SignalNode, blocks: Vec<Block>) -> SignalNode {
-    let mut cascading_signal = input;
+pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalNode {
+    let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
 
-    for block in blocks {
-        cascading_signal = cascading_signal.cascade_block(&block);
+    for (i, block) in blocks.iter().enumerate() {
+        if i == 0 {
+            cascading_signal = input.cascade_block(block);
+        } else {
+            cascading_signal = cascading_signal.cascade_block(block);
+        }
     }
+
     cascading_signal
 }
 
 // returns vector of output signal nodes, handling compression point if present
-pub fn cascade_vector_return_vector(
-    input_signal: SignalNode,
-    blocks: Vec<Block>,
-) -> Vec<SignalNode> {
-    let mut cascading_signal = input_signal;
-    let mut node_vector: Vec<SignalNode> = vec![cascading_signal.clone()];
-    for block in blocks.iter() {
-        cascading_signal = cascading_signal.cascade_block(block);
+pub fn cascade_vector_return_vector(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
+    let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
+
+    // initialize node vector without input node, since the signal nodes are created in the loop and start with the output of the first block
+    let mut node_vector: Vec<SignalNode> = vec![];
+    for (i, block) in blocks.iter().enumerate() {
+        if i == 0 {
+            cascading_signal = input.cascade_block(block);
+        } else {
+            cascading_signal = cascading_signal.cascade_block(block);
+        }
         node_vector.push(cascading_signal.clone());
     }
     node_vector
@@ -37,11 +47,10 @@ mod tests {
     #[test]
     fn two_part_node_cascade_vector_return_output() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
+        let input = super::Input {
             power: input_power,
-            noise_figure: 0.0,
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
+            frequency: 1.0e9, // 1 GHz
+            bandwidth: 0.0,   // CW
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -56,23 +65,22 @@ mod tests {
             output_p1db: None,
         };
         let blocks = vec![amplifier, attenuator];
-        let output_node = super::cascade_vector_return_output(input_node, blocks);
+        let output_node = super::cascade_vector_return_output(input, blocks);
 
         assert_eq!(output_node.power, -6.0);
         assert_eq!(output_node.cumulative_gain, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
-        assert_eq!(output_node.noise_figure, 3.018922107070044);
+        assert_eq!(output_node.noise_figure, 3.006482216120528);
     }
 
     #[test]
     fn two_part_node_cascade_vector_return_vector() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
+        let input = super::Input {
             power: input_power,
-            noise_figure: 0.0,
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
+            frequency: 1.0e9, // 1 GHz
+            bandwidth: 0.0,   // CW
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -87,24 +95,23 @@ mod tests {
             output_p1db: None,
         };
         let blocks = vec![amplifier, attenuator];
-        let cascade_vector = super::cascade_vector_return_vector(input_node, blocks);
+        let cascade_vector = super::cascade_vector_return_vector(input, blocks);
 
         let output_node = cascade_vector.last().unwrap();
         assert_eq!(output_node.power, -6.0);
         assert_eq!(output_node.cumulative_gain, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
-        assert_eq!(output_node.noise_figure, 3.018922107070044);
+        assert_eq!(output_node.noise_figure, 3.006482216120528);
     }
 
     #[test]
     fn two_part_node_cascade_vector_return_vector_with_compression() {
         let input_power: f64 = -30.0;
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
+        let input = super::Input {
             power: input_power,
-            noise_figure: 0.0,
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
+            frequency: 1.0e9, // 1 GHz
+            bandwidth: 0.0,   // CW
         };
         let low_noise_amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -125,13 +132,13 @@ mod tests {
             output_p1db: Some(20.0),
         };
         let blocks = vec![low_noise_amplifier, attenuator, high_power_amplifier];
-        let cascade_vector = super::cascade_vector_return_vector(input_node, blocks);
+        let cascade_vector = super::cascade_vector_return_vector(input, blocks);
 
         let output_node = cascade_vector.last().unwrap();
         assert_eq!(output_node.power, 21.0);
         assert_eq!(output_node.cumulative_gain, 51.0);
 
         assert_eq!(output_node.name, "High Power Amplifier Output");
-        assert_eq!(output_node.noise_figure, 3.020645644372404);
+        assert_eq!(output_node.noise_figure, 3.0082106964008144);
     }
 }
