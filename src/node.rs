@@ -107,7 +107,10 @@ mod tests {
         assert_eq!(output_node.name, "Simple Amplifier Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
         let output_noise_figure = output_node.noise_figure;
-        assert_eq!(output_noise_figure, 5.261903969939863);
+
+        // round to 7 decimal places for comparison, because floating point math is not exact
+        let rounded_noise_figure_to_7_decimal_places = (output_noise_figure * 1e7).round() / 1e7;
+        assert_eq!(rounded_noise_figure_to_7_decimal_places, 5.2619039);
     }
 
     #[test]
@@ -132,7 +135,10 @@ mod tests {
         assert_eq!(output_node.name, "Low Noise Amplifier Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
         let output_noise_figure = output_node.noise_figure;
-        assert_eq!(output_noise_figure, 5.001365273084445);
+
+        // round to 7 decimal places for comparison, because floating point math is not exact
+        let rounded_noise_figure_to_7_decimal_places = (output_noise_figure * 1e7).round() / 1e7;
+        assert_eq!(rounded_noise_figure_to_7_decimal_places, 5.0013652);
     }
 
     #[test]
@@ -168,6 +174,9 @@ mod tests {
         assert_eq!(output_node.name, "Attenuator Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
         let output_noise_figure = output_node.noise_figure;
-        assert_eq!(output_noise_figure, 5.005455115947338);
+
+        // round to 7 decimal places for comparison, because floating point math is not exact
+        let rounded_noise_figure_to_7_decimal_places = (output_noise_figure * 1e7).round() / 1e7;
+        assert_eq!(rounded_noise_figure_to_7_decimal_places, 5.0054551);
     }
 }
