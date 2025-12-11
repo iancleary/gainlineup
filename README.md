@@ -63,7 +63,7 @@ fn run() {
     // println!("{:>8.2} dBm", node.power);`
 
     for (i, node) in full_cascade.iter().enumerate() {
-        println!("");
+        println!();
         println!("Node {}: {}", i, node.name);
 
         if i == 0 {
