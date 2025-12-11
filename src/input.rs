@@ -4,6 +4,9 @@ use std::fmt;
 use crate::block::Block;
 use crate::node::SignalNode;
 
+// the input is the signal that enters the cascade, which is different than the nodes
+// that are the outputs of each block, see block.rs for more details
+#[derive(Clone, Debug)]
 pub struct Input {
     pub frequency: f64, // Hz, center frequency of signal
     pub bandwidth: f64, // Hz, width of signal
@@ -67,6 +70,8 @@ impl Input {
         SignalNode {
             name: output_node_name,
             power: output_power,
+            frequency: self.frequency,
+            bandwidth: self.bandwidth,
             noise_figure: cumulative_noise_figure,
             cumulative_gain: stage_gain,
         }

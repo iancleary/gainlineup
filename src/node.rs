@@ -7,6 +7,8 @@ use crate::block::Block;
 pub struct SignalNode {
     pub name: String,         // name of node, like "Input" or "Amplifier 1 Output"
     pub power: f64,           // dBm
+    pub frequency: f64,       // Hz
+    pub bandwidth: f64,       // Hz
     pub noise_figure: f64,    // dB, linear
     pub cumulative_gain: f64, // cumulative, dB (set to 0 at start)
 }
@@ -15,8 +17,8 @@ impl fmt::Display for SignalNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "SignalNode {{ name: {}, power: {}, noise_figure: {}, cumulative_gain: {} }}",
-            self.name, self.power, self.noise_figure, self.cumulative_gain
+            "SignalNode {{ name: {}, power: {}, frequency: {}, bandwidth: {}, noise_figure: {}, cumulative_gain: {} }}",
+            self.name, self.power, self.frequency, self.bandwidth, self.noise_figure, self.cumulative_gain
         )
     }
 }
@@ -26,6 +28,8 @@ impl Default for SignalNode {
         Self {
             name: String::from("default"),
             power: 0.0,           // placeholder value, you should change this
+            frequency: 0.0,       // placeholder value, you should change this
+            bandwidth: 0.0,       // placeholder value, you should change this
             noise_figure: 0.0,    // no contribution
             cumulative_gain: 1.0, // default assuming start of cascade
         }
@@ -33,10 +37,19 @@ impl Default for SignalNode {
 }
 
 impl SignalNode {
-    pub fn new(name: String, power: f64, noise_figure: f64, cumulative_gain: f64) -> SignalNode {
+    pub fn new(
+        name: String,
+        power: f64,
+        frequency: f64,
+        bandwidth: f64,
+        noise_figure: f64,
+        cumulative_gain: f64,
+    ) -> SignalNode {
         SignalNode {
             name,
             power,
+            frequency,
+            bandwidth,
             noise_figure,
             cumulative_gain,
         }
@@ -70,9 +83,16 @@ impl SignalNode {
         let cumulative_noise_figure =
             rfconversions::noise::noise_figure_from_noise_factor(cumulative_noise_factor);
 
+        let output_frequency = self.frequency;
+        let output_bandwidth = self.bandwidth;
+
+        // TODO: handle frequency and bandwidth changes, i.e. mixers, filters, etc.
+
         SignalNode {
             name: output_node_name,
             power: output_power,
+            frequency: output_frequency,
+            bandwidth: output_bandwidth,
             noise_figure: cumulative_noise_figure,
             cumulative_gain: self.cumulative_gain + stage_gain,
         }
@@ -92,6 +112,8 @@ mod tests {
         let input_node = super::SignalNode {
             name: "Input".to_string(),
             power: input_power,
+            frequency: 1.0e9,     // Hz
+            bandwidth: 1.0e6,     // Hz
             noise_figure: 5.0,    // cumulative noise figure
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
@@ -111,6 +133,8 @@ mod tests {
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_noise_figure * 1e3).round() / 1e3;
         assert_eq!(rounded_noise_figure, 5.262);
+        assert_eq!(output_node.frequency, 1.0e9);
+        assert_eq!(output_node.bandwidth, 1.0e6);
     }
 
     #[test]
@@ -119,6 +143,8 @@ mod tests {
         let input_node = super::SignalNode {
             name: "Input".to_string(),
             power: input_power,
+            frequency: 1.0e9,     // Hz
+            bandwidth: 1.0e6,     // Hz
             noise_figure: 5.0,    // cumulative noise figure
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
@@ -139,6 +165,8 @@ mod tests {
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_noise_figure * 1e3).round() / 1e3;
         assert_eq!(rounded_noise_figure, 5.001);
+        assert_eq!(output_node.frequency, 1.0e9);
+        assert_eq!(output_node.bandwidth, 1.0e6);
     }
 
     #[test]
@@ -147,6 +175,8 @@ mod tests {
         let input_node = super::SignalNode {
             name: "Input".to_string(),
             power: input_power,
+            frequency: 1.0e9,     // Hz
+            bandwidth: 1.0e6,     // Hz
             noise_figure: 5.0,    // cumulative noise figure
             cumulative_gain: 0.0, // starting/initial/input node of cascade
         };
@@ -178,5 +208,7 @@ mod tests {
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_noise_figure * 1e3).round() / 1e3;
         assert_eq!(rounded_noise_figure, 5.005);
+        assert_eq!(output_node.frequency, 1.0e9);
+        assert_eq!(output_node.bandwidth, 1.0e6);
     }
 }

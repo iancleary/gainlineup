@@ -3,11 +3,11 @@ use std::io::Write;
 use std::path::Path;
 
 use crate::Block;
+use crate::Input;
 use crate::SignalNode;
 
 pub fn generate_html_table(
-    input_power: f64,
-    frequency: f64,
+    input: &Input,
     cascade: &[SignalNode],
     blocks: &[Block],
     output_path_str: &str,
@@ -44,24 +44,45 @@ pub fn generate_html_table(
     writeln!(file, "</tr>")?;
     writeln!(file, "<tr>")?;
     writeln!(file, "<td>Input Power</td>")?;
-    writeln!(file, "<td>{:.2}</td>", input_power)?;
+    writeln!(file, "<td>{:.2}</td>", input.power)?;
     writeln!(file, "<td>dBm</td>")?;
     writeln!(file, "</tr>")?;
     writeln!(file, "<tr>")?;
     writeln!(file, "<td>Frequency</td>")?;
-    let (freq_val, freq_unit) = if frequency >= 1e12 {
-        (frequency / 1e12, "THz")
-    } else if frequency >= 1e9 {
-        (frequency / 1e9, "GHz")
-    } else if frequency >= 1e6 {
-        (frequency / 1e6, "MHz")
-    } else if frequency >= 1e3 {
-        (frequency / 1e3, "kHz")
+    let (freq_val, freq_unit) = if input.frequency >= 1e12 {
+        (input.frequency / 1e12, "THz")
+    } else if input.frequency >= 1e9 {
+        (input.frequency / 1e9, "GHz")
+    } else if input.frequency >= 1e6 {
+        (input.frequency / 1e6, "MHz")
+    } else if input.frequency >= 1e3 {
+        (input.frequency / 1e3, "kHz")
     } else {
-        (frequency, "Hz")
+        (input.frequency, "Hz")
     };
     writeln!(file, "<td>{:.2}</td>", freq_val)?;
     writeln!(file, "<td>{}</td>", freq_unit)?;
+    writeln!(file, "</tr>")?;
+    writeln!(file, "<tr>")?;
+    writeln!(file, "<td>Bandwidth</td>")?;
+    if input.bandwidth > 0.0 {
+        let (bw_val, bw_unit) = if input.bandwidth >= 1e12 {
+            (input.bandwidth / 1e12, "THz")
+        } else if input.bandwidth >= 1e9 {
+            (input.bandwidth / 1e9, "GHz")
+        } else if input.bandwidth >= 1e6 {
+            (input.bandwidth / 1e6, "MHz")
+        } else if input.bandwidth >= 1e3 {
+            (input.bandwidth / 1e3, "kHz")
+        } else {
+            (input.bandwidth, "Hz")
+        };
+        writeln!(file, "<td>{:.2}</td>", bw_val)?;
+        writeln!(file, "<td>{}</td>", bw_unit)?;
+    } else {
+        writeln!(file, "<td>(CW) {:.2}</td>", 0.0)?;
+        writeln!(file, "<td>Hz</td>")?;
+    }
     writeln!(file, "</tr>")?;
     writeln!(file, "</table>")?;
     writeln!(file, "<br>")?;
@@ -88,7 +109,7 @@ pub fn generate_html_table(
         let block = &blocks[i];
 
         let actual_input_power = if i == 0 {
-            input_power
+            input.power
         } else {
             cascade[i - 1].power
         };
