@@ -261,16 +261,9 @@ impl Command {
                     );
                 };
 
-                // replace basename.toml.html with basename.html, if it ends with .toml.html
-                let output_html_path = if output_html_path.ends_with(".toml.html") {
-                    output_html_path.replace(".toml.html", ".html")
-                } else {
-                    output_html_path
-                };
+                println!("Generating HTML table at: {}", output_html_path);
 
                 let output_html_path_str = output_html_path.as_str();
-
-                println!("Generating HTML table at: {}", output_html_path);
 
                 match crate::plot::generate_html_table(
                     config.input_power,
