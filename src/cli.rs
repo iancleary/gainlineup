@@ -23,6 +23,7 @@ use serde::Deserialize;
 pub struct Config {
     pub input_power: f64,
     pub frequency: f64,
+    pub bandwidth: Option<f64>,
     pub noise_temperature: Option<f64>,
     pub blocks: Vec<Block>,
 }
@@ -64,6 +65,7 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     struct IntermediateConfig {
         input_power: f64,
         frequency: f64,
+        bandwidth: Option<f64>,
         noise_temperature: Option<f64>,
         blocks: Vec<BlockConfig>,
     }
@@ -87,6 +89,7 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     Ok(Config {
         input_power: intermediate_config.input_power,
         frequency: intermediate_config.frequency,
+        bandwidth: intermediate_config.bandwidth,
         noise_temperature: intermediate_config.noise_temperature,
         blocks,
     })

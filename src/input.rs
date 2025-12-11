@@ -67,6 +67,8 @@ impl Input {
         SignalNode {
             name: output_node_name,
             power: output_power,
+            frequency: self.frequency,
+            bandwidth: self.bandwidth,
             noise_figure: cumulative_noise_figure,
             cumulative_gain: stage_gain,
         }
