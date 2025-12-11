@@ -144,7 +144,7 @@ gainlineup files/simple_config.toml
 
 This will generate a html file in the same directory as the toml file.
 
-
+```bash
 Node 0: Low Noise Amplifier Output
 Input Level   -50.00 dBm
 
