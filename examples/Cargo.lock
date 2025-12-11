@@ -10,12 +10,19 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "gainlineup"
-version = "0.12.3"
+version = "0.12.2"
 dependencies = [
  "rfconversions",
  "serde",
  "toml",
  "touchstone",
+]
+
+[[package]]
+name = "gainlineup-example"
+version = "0.0.0"
+dependencies = [
+ "gainlineup",
 ]
 
 [[package]]

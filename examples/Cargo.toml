@@ -5,14 +5,11 @@ documentation = "https://docs.rs/gainlineup"
 edition = "2021"
 homepage = "https://github.com/iancleary/gainlineup"
 license = "MIT"
-name = "gainlineup"
+name = "gainlineup-example"
 repository = "https://github.com/iancleary/gainlineup"
-version = "0.12.3"
+version = "0.0.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rfconversions = "0.5.0"
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.9.8"
-touchstone = "0.10.4"
+gainlineup = { path = "../" }
