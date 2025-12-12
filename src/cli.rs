@@ -226,7 +226,7 @@ impl Command {
                 let input = Input {
                     power: config.input_power,
                     frequency: config.frequency,
-                    bandwidth: config.bandwidth.unwrap_or(0.0), // CW
+                    bandwidth: config.bandwidth.unwrap_or(100.0), // CW in real life
                 };
                 let cascade = calculate_gainlineup(input.clone(), config.blocks.clone());
                 // println!("\n----------------------------\n");
