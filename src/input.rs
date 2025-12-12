@@ -26,9 +26,10 @@ impl fmt::Display for Input {
 impl Default for Input {
     fn default() -> Self {
         Self {
-            frequency: 0.0, // placeholder value, you should change this
-            bandwidth: 0.0, // placeholder value, you should change this
-            power: 0.0,     // placeholder value, you should change this
+            frequency: 0.0,   // placeholder value, you should change this (0 Hz)
+            bandwidth: 100.0, // placeholder value, you should change this (100 Hz)
+            // https://www.w8ji.com/cw_bandwidth_described.htm describes how CW signals are generally made, which require non-zero bandwidth
+            power: 0.0, // placeholder value, you should change this (0 dBm)
         }
     }
 }

@@ -55,6 +55,45 @@ impl SignalNode {
         }
     }
 
+    pub fn noise_spectral_density(&self) -> f64 {
+        // let k = rfconversions::constants::BOLTZMANN;
+        let k = 1.380649e-23;
+        let t = self.noise_temperature();
+        let noise_spectral_density = k * t;
+
+        println!("Noise Spectral Density: (W/Hz) {}", noise_spectral_density);
+
+        let noise_spectral_density_dbm_per_hz =
+            rfconversions::power::watts_to_dbm(noise_spectral_density);
+
+        println!(
+            "Noise Spectral Density: (dBm/Hz) {}",
+            noise_spectral_density_dbm_per_hz
+        );
+
+        noise_spectral_density_dbm_per_hz
+    }
+
+    pub fn noise_power(&self) -> f64 {
+        // let k = rfconversions::constants::BOLTZMANN;
+        let k = 1.380649e-23;
+        let t = self.noise_temperature();
+        let noise_power = k * t * self.bandwidth;
+
+        println!("Noise Power: (W) {}", noise_power);
+
+        let noise_power_dbm = rfconversions::power::watts_to_dbm(noise_power);
+
+        println!("Noise Power: (dBm) {}", noise_power_dbm);
+
+        noise_power_dbm
+    }
+
+    pub fn signal_to_noise_ratio(&self) -> f64 {
+        // dBm - dBm = dB
+        self.power - self.noise_power()
+    }
+
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
         let output_node_name = block.name.clone() + " Output";
 
@@ -100,6 +139,10 @@ impl SignalNode {
 
     pub fn noise_factor(&self) -> f64 {
         rfconversions::noise::noise_factor_from_noise_figure(self.noise_figure)
+    }
+
+    pub fn noise_temperature(&self) -> f64 {
+        rfconversions::noise::noise_temperature_from_noise_figure(self.noise_figure)
     }
 }
 

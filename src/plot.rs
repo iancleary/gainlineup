@@ -99,6 +99,11 @@ pub fn generate_html_table(
     writeln!(file, "<th>Output P1dB (dBm)</th>")?;
     writeln!(file, "<th>Cumulative Gain (dB)</th>")?;
     writeln!(file, "<th>Cumulative NF (dB)</th>")?;
+    writeln!(file, "<th>Input Noise Spectral Density (dBm/Hz)</th>")?;
+    writeln!(file, "<th>Output Noise Spectral Density (dBm/Hz)</th>")?;
+    writeln!(file, "<th>Input Noise Power (dBm)</th>")?;
+    writeln!(file, "<th>Output Noise Power (dBm)</th>")?;
+    writeln!(file, "<th>Signal-to-Noise Ratio (dB)</th>")?;
     writeln!(file, "</tr>")?;
 
     for (i, node) in cascade.iter().enumerate() {
@@ -125,6 +130,23 @@ pub fn generate_html_table(
         }
         writeln!(file, "<td>{:.2}</td>", node.cumulative_gain)?;
         writeln!(file, "<td>{:.2}</td>", node.noise_figure)?;
+        if i == 0 {
+            writeln!(file, "<td>-</td>")?;
+        } else {
+            writeln!(
+                file,
+                "<td>{:.2}</td>",
+                cascade[i - 1].noise_spectral_density()
+            )?;
+        }
+        writeln!(file, "<td>{:.2}</td>", node.noise_spectral_density())?;
+        if i == 0 {
+            writeln!(file, "<td>-</td>")?;
+        } else {
+            writeln!(file, "<td>{:.2}</td>", cascade[i - 1].noise_power())?;
+        }
+        writeln!(file, "<td>{:.2}</td>", node.noise_power())?;
+        writeln!(file, "<td>{:.2}</td>", node.signal_to_noise_ratio())?;
         writeln!(file, "</tr>")?;
     }
 
