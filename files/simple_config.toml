@@ -1,4 +1,4 @@
-input_power = -70.0
+input_power = -120.0
 frequency = 6.0e9
 
 [[blocks]]
