@@ -65,6 +65,10 @@ impl Block {
         }
         output_power_without_compression
     }
+
+    pub fn power_gain(&self, input_power: f64) -> f64 {
+        self.output_power(input_power) - input_power
+    }
 }
 
 #[cfg(test)]
@@ -106,6 +110,9 @@ mod tests {
         let output_power = amplifier.output_power(input_power);
 
         assert_eq!(output_power, -20.0);
+
+        let power_gain = amplifier.power_gain(input_power);
+        assert_eq!(power_gain, 10.0);
     }
 
     #[test]
@@ -120,5 +127,8 @@ mod tests {
         let output_power = amplifier.output_power(input_power);
 
         assert_eq!(output_power, -19.0);
+
+        let power_gain = amplifier.power_gain(input_power);
+        assert_eq!(power_gain, 6.0);
     }
 }

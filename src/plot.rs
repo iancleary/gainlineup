@@ -6,6 +6,20 @@ use crate::Block;
 use crate::Input;
 use crate::SignalNode;
 
+fn format_hz(hz: f64) -> (f64, String) {
+    if hz >= 1e12 {
+        (hz / 1e12, "THz".to_string())
+    } else if hz >= 1e9 {
+        (hz / 1e9, "GHz".to_string())
+    } else if hz >= 1e6 {
+        (hz / 1e6, "MHz".to_string())
+    } else if hz >= 1e3 {
+        (hz / 1e3, "kHz".to_string())
+    } else {
+        (hz, "Hz".to_string())
+    }
+}
+
 pub fn generate_html_table(
     input: &Input,
     cascade: &[SignalNode],
@@ -49,39 +63,20 @@ pub fn generate_html_table(
     writeln!(file, "</tr>")?;
     writeln!(file, "<tr>")?;
     writeln!(file, "<td>Frequency</td>")?;
-    let (freq_val, freq_unit) = if input.frequency >= 1e12 {
-        (input.frequency / 1e12, "THz")
-    } else if input.frequency >= 1e9 {
-        (input.frequency / 1e9, "GHz")
-    } else if input.frequency >= 1e6 {
-        (input.frequency / 1e6, "MHz")
-    } else if input.frequency >= 1e3 {
-        (input.frequency / 1e3, "kHz")
-    } else {
-        (input.frequency, "Hz")
-    };
+    let (freq_val, freq_unit) = format_hz(input.frequency);
     writeln!(file, "<td>{:.2}</td>", freq_val)?;
     writeln!(file, "<td>{}</td>", freq_unit)?;
     writeln!(file, "</tr>")?;
     writeln!(file, "<tr>")?;
     writeln!(file, "<td>Bandwidth</td>")?;
     if input.bandwidth > 0.0 {
-        let (bw_val, bw_unit) = if input.bandwidth >= 1e12 {
-            (input.bandwidth / 1e12, "THz")
-        } else if input.bandwidth >= 1e9 {
-            (input.bandwidth / 1e9, "GHz")
-        } else if input.bandwidth >= 1e6 {
-            (input.bandwidth / 1e6, "MHz")
-        } else if input.bandwidth >= 1e3 {
-            (input.bandwidth / 1e3, "kHz")
-        } else {
-            (input.bandwidth, "Hz")
-        };
+        let (bw_val, bw_unit) = format_hz(input.bandwidth);
         writeln!(file, "<td>{:.2}</td>", bw_val)?;
         writeln!(file, "<td>{}</td>", bw_unit)?;
     } else {
-        writeln!(file, "<td>(CW) {:.2}</td>", 0.0)?;
-        writeln!(file, "<td>Hz</td>")?;
+        let (bw_val, bw_unit) = format_hz(0.0);
+        writeln!(file, "<td>(CW) {:.2}</td>", bw_val)?;
+        writeln!(file, "<td>{}</td>", bw_unit)?;
     }
     writeln!(file, "</tr>")?;
     writeln!(file, "</table>")?;
