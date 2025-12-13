@@ -19,6 +19,7 @@ fn run() {
         power: INPUT_POWER,
         frequency: 1.0e9,
         bandwidth: 1.0e6, // Hz, leave as 0.0 or omit for CW
+        noise_temperature: None,
     };
 
     let cable_from_signal_generator = Block {

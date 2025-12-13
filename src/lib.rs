@@ -51,6 +51,7 @@ mod tests {
             power: input_power,
             frequency: 1.0e9, // 1 GHz
             bandwidth: 0.0,   // CW
+            noise_temperature: Some(270.0),
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -84,6 +85,7 @@ mod tests {
             power: input_power,
             frequency: 1.0e9, // 1 GHz
             bandwidth: 0.0,   // CW
+            noise_temperature: Some(270.0),
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -118,6 +120,7 @@ mod tests {
             power: input_power,
             frequency: 1.0e9, // 1 GHz
             bandwidth: 0.0,   // CW
+            noise_temperature: Some(270.0),
         };
         let low_noise_amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
