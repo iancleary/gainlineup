@@ -11,6 +11,7 @@ pub struct SignalNode {
     pub bandwidth: f64,       // Hz
     pub noise_figure: f64,    // dB, linear
     pub cumulative_gain: f64, // cumulative, dB (set to 0 at start)
+    pub cumulative_noise_temperature: Option<f64>,
 }
 
 impl fmt::Display for SignalNode {
@@ -32,6 +33,7 @@ impl Default for SignalNode {
             bandwidth: 0.0,       // placeholder value, you should change this
             noise_figure: 0.0,    // no contribution
             cumulative_gain: 1.0, // default assuming start of cascade
+            cumulative_noise_temperature: None,
         }
     }
 }
@@ -44,6 +46,7 @@ impl SignalNode {
         bandwidth: f64,
         noise_figure: f64,
         cumulative_gain: f64,
+        cumulative_noise_temperature: Option<f64>,
     ) -> SignalNode {
         SignalNode {
             name,
@@ -52,6 +55,7 @@ impl SignalNode {
             bandwidth,
             noise_figure,
             cumulative_gain,
+            cumulative_noise_temperature,
         }
     }
 
@@ -89,9 +93,17 @@ impl SignalNode {
         noise_power_dbm
     }
 
+    pub fn cumulative_noise_spectral_density(&self) -> f64 {
+        self.noise_spectral_density() + self.cumulative_gain
+    }
+
+    pub fn cumulative_noise_power(&self) -> f64 {
+        self.noise_power() + self.cumulative_gain
+    }
+
     pub fn signal_to_noise_ratio(&self) -> f64 {
         // dBm - dBm = dB
-        self.power - self.noise_power()
+        self.power - self.cumulative_noise_power()
     }
 
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
@@ -99,8 +111,14 @@ impl SignalNode {
 
         let block_noise_factor =
             rfconversions::noise::noise_factor_from_noise_figure(block.noise_figure);
-        let cumulative_gain_linear = rfconversions::power::db_to_linear(self.cumulative_gain)
-            + rfconversions::power::db_to_linear(block.gain);
+
+        let block_noise_temperature =
+            rfconversions::noise::noise_temperature_from_noise_factor(block_noise_factor);
+
+        let stage_gain_linear = rfconversions::power::db_to_linear(block.gain);
+
+        let cumulative_gain_linear =
+            rfconversions::power::db_to_linear(self.cumulative_gain) + stage_gain_linear;
 
         // handle compression point
         let output_power_without_compression = self.power + block.gain;
@@ -122,6 +140,13 @@ impl SignalNode {
         let cumulative_noise_figure =
             rfconversions::noise::noise_figure_from_noise_factor(cumulative_noise_factor);
 
+        let cumulative_noise_temperature = if self.cumulative_noise_temperature.is_some() {
+            let noise_temperature = self.cumulative_noise_temperature.unwrap();
+            Some(noise_temperature + block_noise_temperature / stage_gain_linear)
+        } else {
+            Some(270.0 + block_noise_temperature / stage_gain_linear)
+        };
+
         let output_frequency = self.frequency;
         let output_bandwidth = self.bandwidth;
 
@@ -134,6 +159,7 @@ impl SignalNode {
             bandwidth: output_bandwidth,
             noise_figure: cumulative_noise_figure,
             cumulative_gain: self.cumulative_gain + stage_gain,
+            cumulative_noise_temperature,
         }
     }
 
@@ -159,6 +185,7 @@ mod tests {
             bandwidth: 1.0e6,     // Hz
             noise_figure: 5.0,    // cumulative noise figure
             cumulative_gain: 0.0, // starting/initial/input node of cascade
+            cumulative_noise_temperature: None,
         };
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
@@ -190,6 +217,7 @@ mod tests {
             bandwidth: 1.0e6,     // Hz
             noise_figure: 5.0,    // cumulative noise figure
             cumulative_gain: 0.0, // starting/initial/input node of cascade
+            cumulative_noise_temperature: None,
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -222,6 +250,7 @@ mod tests {
             bandwidth: 1.0e6,     // Hz
             noise_figure: 5.0,    // cumulative noise figure
             cumulative_gain: 0.0, // starting/initial/input node of cascade
+            cumulative_noise_temperature: None,
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -263,6 +292,7 @@ mod tests {
             bandwidth: 1e6,
             noise_figure: 3.0, // ~290K, so T ~ 290 * (10^(3/10) - 1) ~ 290 * (2 - 1) = 290K. Total T = 290.
             cumulative_gain: 0.0,
+            cumulative_noise_temperature: None,
         };
 
         // Case 1: Standard ~290K noise temperature (NF=3dB implies F=2, T=290K if T0=290K? No, T = T0 * (F-1). If F=2, T=290. Total Noise Temp = T_source + T_added. SOurce is usually 290K.
@@ -297,6 +327,7 @@ mod tests {
             bandwidth: 1.0,
             noise_figure: 3.0103, // F=2
             cumulative_gain: 0.0,
+            cumulative_noise_temperature: None,
         };
         let np_1hz = node_1hz.noise_power();
         assert!(
@@ -313,6 +344,7 @@ mod tests {
             bandwidth: 1.0e6,
             noise_figure: 3.0103, // F=2
             cumulative_gain: 0.0,
+            cumulative_noise_temperature: None,
         };
         let np_1mhz = node_1mhz.noise_power();
         assert!(
@@ -330,6 +362,7 @@ mod tests {
             bandwidth: 1.0,       // 1Hz
             noise_figure: 3.0103, // Noise Power ~ -174 dBm
             cumulative_gain: 0.0,
+            cumulative_noise_temperature: None,
         };
         // SNR = -100 - (-174) = 74 dB
         let snr = node.signal_to_noise_ratio();
@@ -346,6 +379,7 @@ mod tests {
             bandwidth: 0.0,
             noise_figure: 3.0,
             cumulative_gain: 0.0,
+            cumulative_noise_temperature: None,
         };
         // Power = k*T*0 = 0 Watts.
         // dBm = 10*log10(0) = -inf.
@@ -364,6 +398,7 @@ mod tests {
             bandwidth: 1e6,
             noise_figure: 0.0, // F=1, T=0
             cumulative_gain: 0.0,
+            cumulative_noise_temperature: None,
         };
         // T=0 => Power = 0 Watts => -inf dBm
         let np_0k = node_0k.noise_power();

@@ -227,6 +227,7 @@ impl Command {
                     power: config.input_power,
                     frequency: config.frequency,
                     bandwidth: config.bandwidth.unwrap_or(100.0), // CW in real life
+                    noise_temperature: Some(config.noise_temperature.unwrap_or(290.0)), // 290K is standard
                 };
                 let cascade = calculate_gainlineup(input.clone(), config.blocks.clone());
                 // println!("\n----------------------------\n");
