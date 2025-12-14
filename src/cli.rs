@@ -352,11 +352,11 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
         if i == 0 {
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
-            println!("Input Level {:>8.2} dBm", node.power);
+            println!("Input Level {:>8.2} dBm", node.signal_power);
         } else {
             // let block_gain = node.power - cascade[i - 1].power;
             let block_gain = blocks[i - 1].gain;
-            let input_power = node.power - block_gain;
+            let input_power = node.signal_power - block_gain;
 
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
@@ -364,19 +364,26 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
             println!("Block Gain:\t\t{:>8.2} dB", block_gain);
             println!("Block NF:\t\t{:>8.2} dB", blocks[i - 1].noise_figure);
             println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain);
-            println!("Cumulative Noise Figure:{:>8.2} dB", node.noise_figure);
-            println!("Output Power\t\t{:>8.2} dBm", node.power);
+            println!(
+                "Cumulative Noise Figure:{:>8.2} dB",
+                node.cumulative_noise_figure
+            );
+            println!("Output Power\t\t{:>8.2} dBm", node.signal_power);
         }
     }
     println!();
     println!("Final Cascade Summary:");
     println!("----------------------");
     println!("Number of Blocks: {}", cascade.len() - 1);
-    println!("Pin:\t{:>8.2} dBm", cascade[0].power);
+    println!("Pin:\t{:>8.2} dBm", cascade[0].signal_power);
 
-    let final_output_power = cascade.last().unwrap().power;
+    let final_output_power = cascade.last().unwrap().signal_power;
     println!("Pout:\t{:>8.2} dBm", final_output_power);
     println!("Gain:\t{:>8.2} dB", cascade.last().unwrap().cumulative_gain);
+    println!(
+        "NF:\t{:>8.2} dB",
+        cascade.last().unwrap().cumulative_noise_figure
+    );
 }
 
 #[cfg(test)]

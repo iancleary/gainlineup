@@ -2,6 +2,7 @@ use std::default::Default;
 use std::fmt;
 
 use crate::block::Block;
+use crate::constants;
 use crate::node::SignalNode;
 
 // the input is the signal that enters the cascade, which is different than the nodes
@@ -52,7 +53,7 @@ impl Input {
     }
 
     pub fn noise_spectral_density(&self) -> f64 {
-        let k = 1.380649e-23;
+        let k = constants::BOLTZMANN;
         let t = self.noise_temperature.unwrap_or(270.0);
         let noise_spectral_density = k * t;
 
@@ -69,8 +70,9 @@ impl Input {
         noise_spectral_density_dbm_per_hz
     }
 
+    // input noise power (kTB), thermal noise
     pub fn noise_power(&self) -> f64 {
-        let k = 1.380649e-23;
+        let k = constants::BOLTZMANN;
         let t = self.noise_temperature.unwrap_or(270.0);
         let noise_power = k * t * self.bandwidth;
 
@@ -84,6 +86,8 @@ impl Input {
     }
 
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
+        println!("Start INPUT");
+
         let output_node_name = block.name.clone() + " Output";
 
         let block_noise_factor =
@@ -104,9 +108,9 @@ impl Input {
             output_power_without_compression
         };
 
-        let stage_gain = output_power - self.power;
+        let stage_power_gain = output_power - self.power;
 
-        let stage_gain_linear = rfconversions::power::db_to_linear(stage_gain);
+        let stage_power_gain_linear = rfconversions::power::db_to_linear(stage_power_gain);
 
         let cumulative_noise_factor = block_noise_factor;
 
@@ -115,19 +119,61 @@ impl Input {
 
         let cumulative_noise_temperature = if self.noise_temperature.is_some() {
             let noise_temperature = self.noise_temperature.unwrap();
-            Some(noise_temperature + block_noise_temperature / stage_gain_linear)
+            Some(noise_temperature + block_noise_temperature / stage_power_gain_linear)
         } else {
-            Some(270.0 + block_noise_temperature / stage_gain_linear)
+            Some(270.0 + block_noise_temperature / stage_power_gain_linear)
         };
+
+        let input_noise_power = self.noise_power();
+
+        println!("Input Noise Power: (dBm) {}", input_noise_power);
+        let output_noise_power_from_input_dbm = input_noise_power + stage_power_gain;
+
+        let output_noise_power_from_block_dbm =
+            block.output_noise_power(self.bandwidth, self.power);
+
+        println!(
+            "Output Noise Power from Input: (dBm) {}",
+            output_noise_power_from_input_dbm
+        );
+        println!(
+            "Output Noise Power from Block: (dBm) {}",
+            output_noise_power_from_block_dbm
+        );
+
+        let output_noise_power_from_input_watts =
+            rfconversions::power::dbm_to_watts(output_noise_power_from_input_dbm);
+
+        let output_noise_power_from_block_watts =
+            rfconversions::power::dbm_to_watts(output_noise_power_from_block_dbm);
+
+        let total_noise_power_at_output_watts =
+            output_noise_power_from_input_watts + output_noise_power_from_block_watts;
+
+        println!(
+            "Total Noise Power at Output: (W) {}",
+            total_noise_power_at_output_watts
+        );
+
+        let output_noise_power_at_output_dbm =
+            rfconversions::power::watts_to_dbm(total_noise_power_at_output_watts);
+
+        println!(
+            "Output Noise Power at Output: (dBm) {}",
+            output_noise_power_at_output_dbm
+        );
+
+        println!("End INPUT");
 
         SignalNode {
             name: output_node_name,
-            power: output_power,
-            frequency: self.frequency,
-            bandwidth: self.bandwidth,
-            noise_figure: cumulative_noise_figure,
-            cumulative_gain: stage_gain,
+            signal_power: output_power,
+            signal_frequency: self.frequency,
+            signal_bandwidth: self.bandwidth,
+            cumulative_noise_figure,
+            cumulative_gain: stage_power_gain,
             cumulative_noise_temperature,
+            noise_power: output_noise_power_at_output_dbm,
         }
     }
 }

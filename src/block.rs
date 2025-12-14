@@ -1,6 +1,8 @@
 use std::default::Default;
 use std::fmt;
 
+use crate::constants;
+
 // the definition of a block in the cascade
 #[derive(Clone, Debug)]
 pub struct Block {
@@ -44,6 +46,38 @@ impl Default for Block {
 impl Block {
     pub fn noise_temperature(&self) -> f64 {
         rfconversions::noise::noise_temperature_from_noise_figure(self.noise_figure)
+    }
+
+    pub fn noise_factor(&self) -> f64 {
+        rfconversions::noise::noise_factor_from_noise_figure(self.noise_figure)
+    }
+
+    // input noise power (F-1)*kTB
+    pub fn input_noise_power(&self, bandwidth: f64) -> f64 {
+        let noise_factor = self.noise_factor();
+        let noise_temperature = self.noise_temperature();
+
+        let f_minus_1 = noise_factor - 1.0;
+
+        let ktb = constants::BOLTZMANN * noise_temperature * bandwidth;
+
+        rfconversions::power::watts_to_dbm(f_minus_1 * ktb)
+    }
+
+    // input_noise_power * power_gain = output_noise_power
+    pub fn output_noise_power(&self, bandwidth: f64, input_power: f64) -> f64 {
+        println!("START BLOCK output_noise_power");
+        let input_noise_power = self.input_noise_power(bandwidth);
+        println!(
+            "Input Noise Power (block.input_noise_power): (dBm) {}",
+            input_noise_power
+        );
+        let power_gain = self.power_gain(input_power);
+        println!("Power Gain: (dB) {}", power_gain);
+        let output_noise_power = input_noise_power + power_gain;
+        println!("Output Noise Power: (dBm) {}", output_noise_power);
+        println!("END BLOCK output_noise_power");
+        output_noise_power
     }
 
     pub fn output_power(&self, input_power: f64) -> f64 {

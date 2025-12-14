@@ -134,14 +134,14 @@ pub fn generate_html_table(
         let actual_input_power = if i == 0 {
             input.power
         } else {
-            cascade[i - 1].power
+            cascade[i - 1].signal_power
         };
 
         writeln!(file, "<td>{:.2}</td>", actual_input_power)?;
-        writeln!(file, "<td>{:.2}</td>", node.power)?;
+        writeln!(file, "<td>{:.2}</td>", node.signal_power)?;
         writeln!(file, "<td>{:.2}</td>", block.power_gain(actual_input_power))?;
         writeln!(file, "<td>{:.2}</td>", node.cumulative_gain)?;
-        writeln!(file, "<td>{:.2}</td>", node.noise_figure)?;
+        writeln!(file, "<td>{:.2}</td>", node.cumulative_noise_figure)?;
 
         // input noise temperature
         if i == 0 {
@@ -170,26 +170,18 @@ pub fn generate_html_table(
             writeln!(
                 file,
                 "<td>{:.2}</td>",
-                cascade[i - 1].cumulative_noise_spectral_density()
+                cascade[i - 1].noise_spectral_density()
             )?;
         }
-        writeln!(
-            file,
-            "<td>{:.2}</td>",
-            node.cumulative_noise_spectral_density()
-        )?;
+        writeln!(file, "<td>{:.2}</td>", node.noise_spectral_density())?;
 
         // input noise power
         if i == 0 {
             writeln!(file, "<td>{:.2}</td>", input.noise_power())?;
         } else {
-            writeln!(
-                file,
-                "<td>{:.2}</td>",
-                cascade[i - 1].cumulative_noise_power()
-            )?;
+            writeln!(file, "<td>{:.2}</td>", cascade[i - 1].noise_power)?;
         }
-        writeln!(file, "<td>{:.2}</td>", node.cumulative_noise_power())?;
+        writeln!(file, "<td>{:.2}</td>", node.noise_power)?;
         writeln!(file, "<td>{:.2}</td>", node.signal_to_noise_ratio())?;
         writeln!(file, "</tr>")?;
     }
