@@ -412,7 +412,7 @@ mod tests {
     fn test_run_function() {
         let test_dir = setup_test_dir("test_run_function");
         let toml_path = test_dir.join("test_cli_run.toml");
-        fs::copy("files/simple_config.toml", &toml_path).unwrap();
+        fs::copy("files/defaults_to_cw.toml", &toml_path).unwrap();
 
         let args = vec![
             String::from("program_name"),
