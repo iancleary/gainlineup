@@ -290,7 +290,7 @@ mod tests {
             signal_power: -50.0,
             signal_frequency: 1e9,
             signal_bandwidth: 1e6,
-            noise_power: -174.0 * 10.0 * f64::log10(1.0e6), // assumes T = 290 K
+            noise_power: -174.0 + 10.0 * f64::log10(1.0e6), // assumes T approximately = 290 K
             cumulative_noise_figure: 3.0103,                // F=2
             cumulative_gain: 0.0,
             cumulative_noise_temperature: None,
