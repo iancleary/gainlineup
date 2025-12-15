@@ -316,100 +316,20 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_noise_power() {
-    //     // T = 290K (F=2, NF~3dB)
-    //     // B = 1Hz
-    //     // Noise Power = kTB = 4e-21 W = -174 dBm.
-    //     let node_1hz = super::SignalNode {
-    //         name: "1Hz Node".to_string(),
-    //         signal_power: 0.0,
-    //         signal_frequency: 1e9,
-    //         signal_bandwidth: 1.0,
-    //         noise_power: -174.0 * 10.0 * f64::log10(1.0), // assumes T = 290 K
-    //         cumulative_noise_figure: 3.0103,              // F=2
-    //         cumulative_gain: 0.0,
-    //         cumulative_noise_temperature: None,
-    //     };
-    //     let np_1hz = node_1hz.noise_power();
-    //     assert!(
-    //         (np_1hz - -173.97).abs() < 0.1,
-    //         "Noise power for 1Hz, 290K should be approx -174 dBm"
-    //     );
-
-    //     // Test Bandwidth scaling
-    //     // B = 1MHz (10^6). Noise power should be -174 + 60 = -114 dBm.
-    //     let node_1mhz = super::SignalNode {
-    //         name: "1MHz Node".to_string(),
-    //         signal_power: 0.0,
-    //         signal_frequency: 1e9,
-    //         signal_bandwidth: 1.0e6,
-    //         noise_power: -174.0 * 10.0 * f64::log10(1.0e6), // assumes T = 290 K
-    //         cumulative_noise_figure: 3.0103,                // F=2
-    //         cumulative_gain: 0.0,
-    //         cumulative_noise_temperature: None,
-    //     };
-    //     let np_1mhz = node_1mhz.noise_power;
-    //     assert!(
-    //         (np_1mhz - -113.97).abs() < 0.1,
-    //         "Noise power for 1MHz, 290K should be approx -114 dBm"
-    //     );
-    // }
-
-    // #[test]
-    // fn test_signal_to_noise_ratio() {
-    //     let node = super::SignalNode {
-    //         name: "SNR Node".to_string(),
-    //         signal_power: -100.0, // Signal
-    //         signal_frequency: 1e9,
-    //         signal_bandwidth: 1.0,                        // 1Hz
-    //         noise_power: -174.0 * 10.0 * f64::log10(1.0), // assumes T = 290 K
-    //         cumulative_noise_figure: 3.0103,              // Noise Power ~ -174 dBm
-    //         cumulative_gain: 0.0,
-    //         cumulative_noise_temperature: None,
-    //     };
-    //     // SNR = -100 - (-174) = 74 dB
-    //     let snr = node.signal_to_noise_ratio();
-    //     assert!((snr - 73.97).abs() < 0.1, "SNR should be approx 74 dB");
-    // }
-
-    // #[test]
-    // fn test_edge_cases() {
-    //     // Zero Bandwidth
-    //     let node_0bw = super::SignalNode {
-    //         name: "Zero BW".to_string(),
-    //         power: 0.0,
-    //         frequency: 1e9,
-    //         bandwidth: 0.0,
-    //         noise_figure: 3.0,
-    //         cumulative_gain: 0.0,
-    //         cumulative_noise_temperature: None,
-    //     };
-    //     // Power = k*T*0 = 0 Watts.
-    //     // dBm = 10*log10(0) = -inf.
-    //     let np_0bw = node_0bw.noise_power();
-    //     assert!(
-    //         np_0bw == f64::NEG_INFINITY,
-    //         "Noise power for 0Hz bandwidth should be -inf dBm"
-    //     );
-
-    //     // Zero Kelvin (Absolute Zero) - Approximation by low NF?
-    //     // NF -> 0 dB implies F=1. T = 290(1-1) = 0K? No T = 290(F-1). Yes if F=1 then T=0.
-    //     let node_0k = super::SignalNode {
-    //         name: "Zero K".to_string(),
-    //         power: 0.0,
-    //         frequency: 1e9,
-    //         bandwidth: 1e6,
-    //         noise_figure: 0.0, // F=1, T=0
-    //         cumulative_gain: 0.0,
-    //         cumulative_noise_temperature: None,
-    //     };
-    //     // T=0 => Power = 0 Watts => -inf dBm
-    //     let np_0k = node_0k.noise_power();
-    //     // Note: float equality with -inf is tricky, usually check is_infinite & sign
-    //     assert!(
-    //         np_0k == f64::NEG_INFINITY,
-    //         "Noise power for 0K should be -inf dBm"
-    //     );
-    // }
+    #[test]
+    fn test_signal_to_noise_ratio() {
+        let node = super::SignalNode {
+            name: "SNR Node".to_string(),
+            signal_power: -100.0, // Signal
+            signal_frequency: 1e9,
+            signal_bandwidth: 1.0,                        // 1Hz
+            noise_power: -174.0 + 10.0 * f64::log10(1.0), // assumes T = 290 K
+            cumulative_noise_figure: 3.0103,              // Noise Power ~ -174 dBm
+            cumulative_gain: 0.0,
+            cumulative_noise_temperature: None,
+        };
+        // SNR = -100 - (-174) = 74 dB
+        let snr = node.signal_to_noise_ratio();
+        assert!((snr - 73.97).abs() < 0.1, "SNR should be approx 74 dB");
+    }
 }
