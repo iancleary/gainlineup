@@ -10,6 +10,7 @@ table { border-collapse: collapse; }
 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
 th { background-color: #f2f2f2; }
 tr:nth-child(even) { background-color: #f9f9f9; }
+table.cascade tr:first-child th { text-align: center; }
 </style>
 </head>
 <body>
@@ -41,15 +42,26 @@ tr:nth-child(even) { background-color: #f9f9f9; }
 <h2>Signal Cascade</h2>
 <table class="cascade">
 <tr>
+<th colspan="1">Identity</th>
+<th colspan="4">Block Definition</th>
+<th colspan="3">Signal Power</th>
+<th colspan="2">Cumulative Stats</th>
+<th colspan="6">Noise Analysis</th>
+<th colspan="1">Signal Quality</th>
+</tr>
+<tr>
 <th>Stage</th>
 <th>Name</th>
 <th>Gain (dB)</th>
 <th>NF (dB)</th>
+<th>Output P1dB (dBm)</th>
 <th>Input Power (dBm)</th>
 <th>Output Power (dBm)</th>
-<th>Output P1dB (dBm)</th>
+<th>Power Gain (dB)</th>
 <th>Cumulative Gain (dB)</th>
 <th>Cumulative NF (dB)</th>
+<th>Input Noise Temperature (K)</th>
+<th>Output Noise Temperature (K)</th>
 <th>Input Noise Spectral Density (dBm/Hz)</th>
 <th>Output Noise Spectral Density (dBm/Hz)</th>
 <th>Input Noise Power (dBm)</th>
@@ -61,48 +73,57 @@ tr:nth-child(even) { background-color: #f9f9f9; }
 <td>Low Noise Amplifier Output</td>
 <td>10.00</td>
 <td>6.00</td>
+<td>-</td>
 <td>-120.00</td>
 <td>-110.00</td>
-<td>-</td>
+<td>10.00</td>
 <td>10.00</td>
 <td>6.00</td>
-<td>-</td>
-<td>-169.23</td>
-<td>-</td>
-<td>-149.23</td>
-<td>39.23</td>
+<td>290.00</td>
+<td>376.45</td>
+<td>-173.98</td>
+<td>-154.02</td>
+<td>-153.98</td>
+<td>-134.02</td>
+<td>24.02</td>
 </tr>
 <tr>
 <td>1</td>
 <td>Mixer Output</td>
 <td>-5.00</td>
 <td>6.00</td>
+<td>-</td>
 <td>-110.00</td>
 <td>-115.00</td>
-<td>-</td>
+<td>-5.00</td>
 <td>5.00</td>
 <td>6.30</td>
-<td>-169.23</td>
-<td>-168.83</td>
-<td>-149.23</td>
-<td>-148.83</td>
-<td>33.83</td>
+<td>376.45</td>
+<td>460.25</td>
+<td>-154.02</td>
+<td>-158.65</td>
+<td>-134.02</td>
+<td>-138.65</td>
+<td>23.65</td>
 </tr>
 <tr>
 <td>2</td>
 <td>IF Amplifier Output</td>
 <td>15.00</td>
 <td>8.00</td>
+<td>-</td>
 <td>-115.00</td>
 <td>-100.00</td>
-<td>-</td>
+<td>15.00</td>
 <td>20.00</td>
 <td>6.46</td>
-<td>-168.83</td>
-<td>-168.63</td>
-<td>-148.83</td>
-<td>-148.63</td>
-<td>48.63</td>
+<td>460.25</td>
+<td>504.52</td>
+<td>-158.65</td>
+<td>-141.03</td>
+<td>-138.65</td>
+<td>-121.03</td>
+<td>21.03</td>
 </tr>
 </table>
 </body>

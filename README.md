@@ -139,7 +139,7 @@ Noise Figure:       6.10 dB
 The command line interface is more interactive, and allows for the user to use toml files to define the Input, the Blocks, and run the cascade, turning the output into a html file.
 
 ```bash
-gainlineup files/simple_config.toml
+gainlineup files/defaults_to_cw.toml
 ```
 
 This will generate a html file in the same directory as the toml file.
@@ -171,17 +171,17 @@ Pin:      -50.00 dBm
 Pout:     -25.00 dBm
 Gain:      45.00 dB
 
-'C:\Users\iancleary\Development\gainlineup\files\simple_wideband_config.toml' is a Windows Absolute path.
-Generating HTML table at: C:\Users\iancleary\Development\gainlineup\files\simple_wideband_config.toml.html
-file_path in get_file_url function: C:\Users\iancleary\Development\gainlineup\files\simple_wideband_config.toml.html
+'C:\Users\iancleary\Development\gainlineup\files\wideband.toml' is a Windows Absolute path.
+Generating HTML table at: C:\Users\iancleary\Development\gainlineup\files\wideband.toml.html
+file_path in get_file_url function: C:\Users\iancleary\Development\gainlineup\files\wideband.toml.html
 You can open the plot in your browser at:
-file:///C:/Users/icleary/Development/gainlineup/files/simple_wideband_config.toml.html
+file:///C:/Users/icleary/Development/gainlineup/files/wideband.toml.html
 Attempting to open plot in your default browser...
-Success! Opening: file:///C:/Users/icleary/Development/gainlineup/files/simple_wideband_config.toml.html
+Success! Opening: file:///C:/Users/icleary/Development/gainlineup/files/wideband.toml.html
 ```
 
-You can view an example of the html output at `files/simple_wideband_config.toml.html`
+You can view an example of the html output at `files/wideband.toml.html`
 
-[![HTML file created for the files directory by running `gainlineup files/simple_wideband_config.toml` in the root of this directory](https://github.com/iancleary/gainlineup/blob/main/files/simple_wideband_config.toml.html.png?raw=true)](https://github.com/iancleary/gainlineup/tree/main/files/simple_wideband_config.toml.html)
+[![HTML file created for the files directory by running `gainlineup files/wideband.toml` in the root of this directory](https://github.com/iancleary/gainlineup/blob/main/files/wideband.toml.html.png?raw=true)](https://github.com/iancleary/gainlineup/tree/main/files/wideband.toml.html)
 
-You can view the HTML source file itself here directly: [files/simple_wideband_config.toml.html](https://github.com/iancleary/gainlineup/tree/main/files/simple_wideband_config.toml.html).
+You can view the HTML source file itself here directly: [files/wideband.toml.html](https://github.com/iancleary/gainlineup/tree/main/files/wideband.toml.html).

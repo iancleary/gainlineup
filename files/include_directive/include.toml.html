@@ -10,6 +10,7 @@ table { border-collapse: collapse; }
 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
 th { background-color: #f2f2f2; }
 tr:nth-child(even) { background-color: #f9f9f9; }
+table.cascade tr:first-child th { text-align: center; }
 </style>
 </head>
 <body>
@@ -41,15 +42,26 @@ tr:nth-child(even) { background-color: #f9f9f9; }
 <h2>Signal Cascade</h2>
 <table class="cascade">
 <tr>
+<th colspan="1">Identity</th>
+<th colspan="4">Block Definition</th>
+<th colspan="3">Signal Power</th>
+<th colspan="2">Cumulative Stats</th>
+<th colspan="6">Noise Analysis</th>
+<th colspan="1">Signal Quality</th>
+</tr>
+<tr>
 <th>Stage</th>
 <th>Name</th>
 <th>Gain (dB)</th>
 <th>NF (dB)</th>
+<th>Output P1dB (dBm)</th>
 <th>Input Power (dBm)</th>
 <th>Output Power (dBm)</th>
-<th>Output P1dB (dBm)</th>
+<th>Power Gain (dB)</th>
 <th>Cumulative Gain (dB)</th>
 <th>Cumulative NF (dB)</th>
+<th>Input Noise Temperature (K)</th>
+<th>Output Noise Temperature (K)</th>
 <th>Input Noise Spectral Density (dBm/Hz)</th>
 <th>Output Noise Spectral Density (dBm/Hz)</th>
 <th>Input Noise Power (dBm)</th>
@@ -61,96 +73,114 @@ tr:nth-child(even) { background-color: #f9f9f9; }
 <td>Low Noise Amplifier Output</td>
 <td>20.00</td>
 <td>3.00</td>
+<td>-</td>
 <td>-60.00</td>
 <td>-40.00</td>
-<td>-</td>
+<td>20.00</td>
 <td>20.00</td>
 <td>3.00</td>
-<td>-</td>
-<td>-174.00</td>
-<td>-</td>
-<td>-154.00</td>
-<td>114.00</td>
+<td>290.00</td>
+<td>292.89</td>
+<td>-173.98</td>
+<td>-150.99</td>
+<td>-153.98</td>
+<td>-130.99</td>
+<td>90.99</td>
 </tr>
 <tr>
 <td>1</td>
 <td>Touchstone Block (ntwk3.s2p) Output</td>
 <td>-3.93</td>
 <td>3.93</td>
+<td>99.00</td>
 <td>-40.00</td>
 <td>-43.93</td>
-<td>99.00</td>
+<td>-3.93</td>
 <td>16.07</td>
 <td>3.03</td>
-<td>-174.00</td>
-<td>-173.93</td>
-<td>-154.00</td>
-<td>-153.93</td>
-<td>110.00</td>
+<td>292.89</td>
+<td>297.14</td>
+<td>-150.99</td>
+<td>-154.87</td>
+<td>-130.99</td>
+<td>-134.87</td>
+<td>90.94</td>
 </tr>
 <tr>
 <td>2</td>
 <td>Line Amplifier Output</td>
 <td>10.00</td>
 <td>5.00</td>
+<td>-</td>
 <td>-43.93</td>
 <td>-33.93</td>
-<td>-</td>
+<td>10.00</td>
 <td>26.07</td>
 <td>3.12</td>
-<td>-173.93</td>
-<td>-173.75</td>
-<td>-153.93</td>
-<td>-153.75</td>
-<td>119.82</td>
+<td>297.14</td>
+<td>309.57</td>
+<td>-154.87</td>
+<td>-144.63</td>
+<td>-134.87</td>
+<td>-124.63</td>
+<td>90.70</td>
 </tr>
 <tr>
 <td>3</td>
 <td>Line Amplifier Output</td>
 <td>10.00</td>
 <td>5.00</td>
+<td>-</td>
 <td>-33.93</td>
 <td>-23.93</td>
-<td>-</td>
+<td>10.00</td>
 <td>36.07</td>
 <td>3.13</td>
-<td>-173.75</td>
-<td>-173.73</td>
-<td>-153.75</td>
-<td>-153.73</td>
-<td>129.80</td>
+<td>309.57</td>
+<td>311.09</td>
+<td>-144.63</td>
+<td>-134.60</td>
+<td>-124.63</td>
+<td>-114.60</td>
+<td>90.67</td>
 </tr>
 <tr>
 <td>4</td>
 <td>Included Attenuator Output</td>
 <td>-6.00</td>
 <td>6.00</td>
+<td>-</td>
 <td>-23.93</td>
 <td>-29.93</td>
-<td>-</td>
+<td>-6.00</td>
 <td>30.07</td>
 <td>3.14</td>
-<td>-173.73</td>
-<td>-173.73</td>
-<td>-153.73</td>
-<td>-153.73</td>
-<td>123.80</td>
+<td>311.09</td>
+<td>311.30</td>
+<td>-134.60</td>
+<td>-140.60</td>
+<td>-114.60</td>
+<td>-120.60</td>
+<td>90.67</td>
 </tr>
 <tr>
 <td>5</td>
 <td>Included Amplifier Output</td>
 <td>20.00</td>
 <td>4.00</td>
+<td>-</td>
 <td>-29.93</td>
 <td>-9.93</td>
-<td>-</td>
+<td>20.00</td>
 <td>50.07</td>
 <td>3.14</td>
-<td>-173.73</td>
-<td>-173.72</td>
-<td>-153.73</td>
-<td>-153.72</td>
-<td>143.79</td>
+<td>311.30</td>
+<td>311.69</td>
+<td>-140.60</td>
+<td>-120.60</td>
+<td>-120.60</td>
+<td>-100.60</td>
+<td>90.66</td>
 </tr>
 </table>
 </body>

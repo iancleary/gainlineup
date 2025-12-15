@@ -19,6 +19,7 @@ fn run() {
         power: INPUT_POWER,
         frequency: 1.0e9,
         bandwidth: 1.0e6, // Hz, leave as 0.0 or omit for CW
+        noise_temperature: None,
     };
 
     let cable_from_signal_generator = Block {
@@ -60,10 +61,10 @@ fn run() {
         if i == 0 {
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
-            println!("Input Level {:>8.2} dBm", node.power);
+            println!("Input Level {:>8.2} dBm", node.signal_power);
         } else {
-            let block_gain = full_cascade[i].power - full_cascade[i - 1].power;
-            let input_power = node.power - block_gain;
+            let block_gain = full_cascade[i].signal_power - full_cascade[i - 1].signal_power;
+            let input_power = node.signal_power - block_gain;
 
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
@@ -72,17 +73,17 @@ fn run() {
                 "Block Gain:\t{:>8.2} dB    (Cumulative Gain: {:>8.2} dB)",
                 block_gain, node.cumulative_gain
             );
-            println!("Noise Figure:\t{:>8.2} dB", node.noise_figure);
-            println!("Output Power\t{:>8.2} dBm", node.power);
+            println!("Noise Figure:\t{:>8.2} dB", node.cumulative_noise_figure);
+            println!("Output Power\t{:>8.2} dBm", node.signal_power);
         }
     }
     println!();
     println!("Final Cascade Summary:");
     println!("----------------------");
     println!("Number of Blocks: {}", full_cascade.len() - 1);
-    println!("Pin:\t{:>8.2} dBm", full_cascade[0].power);
+    println!("Pin:\t{:>8.2} dBm", full_cascade[0].signal_power);
 
-    let final_output_power = full_cascade.last().unwrap().power;
+    let final_output_power = full_cascade.last().unwrap().signal_power;
     println!("Pout:\t{:>8.2} dBm", final_output_power);
     println!(
         "Gain:\t{:>8.2} dB",
@@ -90,6 +91,6 @@ fn run() {
     );
     println!(
         "Noise Figure:\t{:>8.2} dB",
-        full_cascade.last().unwrap().noise_figure
+        full_cascade.last().unwrap().cumulative_noise_figure
     );
 }
