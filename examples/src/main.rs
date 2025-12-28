@@ -13,10 +13,10 @@ fn run() {
     println!("Run function executed");
 
     // Add your code logic here
-    const INPUT_POWER: f64 = 10.0; // dBm
+    const INPUT_POWER_DBM: f64 = 10.0; // dBm
 
     let input_node = Input {
-        power_dbm: INPUT_POWER,
+        power_dbm: INPUT_POWER_DBM,
         frequency_hz: 1.0e9,
         bandwidth_hz: 1.0e6, // Hz, leave as 0.0 or omit for CW
         noise_temperature_k: None,
