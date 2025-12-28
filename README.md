@@ -143,7 +143,33 @@ The command line interface is more interactive, and allows for the user to use t
 gainlineup files/wideband.toml
 ```
 
-This will generate a html file in the same directory as the toml file.
+The contents of that file are:
+
+```toml
+input_power_dbm = -80.0
+frequency_hz = 6.0e9
+bandwidth_hz = 1.0e6
+
+[[blocks]]
+type = "explicit"
+name = "Low Noise Amplifier"
+gain_db = 20.0
+noise_figure_db = 3.0
+
+[[blocks]]
+type = "explicit"
+name = "Mixer"
+gain_db = 10.0
+noise_figure_db = 6.0
+
+[[blocks]]
+type = "explicit"
+name = "IF Amplifier"
+gain_db = 15.0
+noise_figure_db = 5.0
+```
+
+The output will be a html file in the same directory as the toml file.
 
 ```bash
 Node 0: Low Noise Amplifier Output
@@ -186,3 +212,49 @@ You can view an example of the html output at `files/wideband.toml.html`
 [![HTML file created for the files directory by running `gainlineup files/wideband.toml` in the root of this directory](https://github.com/iancleary/gainlineup/blob/main/files/wideband.toml.html.png?raw=true)](https://github.com/iancleary/gainlineup/tree/main/files/wideband.toml.html)
 
 You can view the HTML source file itself here directly: [files/wideband.toml.html](https://github.com/iancleary/gainlineup/tree/main/files/wideband.toml.html).
+
+
+### Configuration Field Aliases
+
+You can use the following field names with or without unit suffixes. The suffixes are the default, but the aliases are supported for brevity:
+
+| Original Field | Alias (Optional) |
+| :--- | :--- |
+| `gain_db` | `gain` |
+| `noise_figure_db` | `noise_figure`, `nf` ([Noise Figure is NF, Noise Factor is F](https://en.wikipedia.org/wiki/Noise_figure)) |
+| `output_p1db_dbm` | `output_p1db`, `op1db` |
+| `input_power_dbm` | `input_power`, `pin` |
+| `frequency_hz` | `frequency`, `f` |
+| `bandwidth_hz` | `bandwidth`, `bw` |
+| `noise_temperature_k` | `noise_temperature` |
+
+You could define the same configuration as above with the following toml:
+
+```toml
+pin = -60.0
+f = 6.0e9
+bw = 1.0e6
+
+[[blocks]]
+type = "explicit"
+name = "Low Noise Amplifier"
+gain = 20.0
+nf = 3.0
+
+[[blocks]]
+type = "explicit"
+name = "Mixer"
+gain = 10.0
+nf = 6.0
+
+[[blocks]]
+type = "explicit"
+name = "IF Amplifier"
+gain = 15.0
+nf = 5.0
+```
+
+> However, the unit suffixes are still supported, and are recommended for clarity.
+> Be careful as aliases hide the unit suffixes and might cause unexpected behavior, if you are assuming a different unit suffix than the code...
+> For example, if you assume `pin` is in dBW, but the code assumes `pin` is in dBm, you will get unexpected results.  Similarly, if you assume `f` is in GHz, but the code assumes `f` is in Hz, you will get unexpected results.
+> Also note that nf is the lower case shorthand for noise figure, since NF is used for Noise Figure, while F is used for Noise Factor, see [Wikipedia](https://en.wikipedia.org/wiki/Noise_factor) for more information.

@@ -38,14 +38,19 @@ struct IncludedConfig {
 enum BlockConfig {
     Explicit {
         name: String,
+        #[serde(alias = "gain")]
         gain_db: f64,
+        #[serde(alias = "noise_figure", alias = "nf")]
         noise_figure_db: f64,
+        #[serde(alias = "output_p1db", alias = "op1db")]
         output_p1db_dbm: Option<f64>,
     },
     Touchstone {
         file_path: String,
         name: String,
+        #[serde(alias = "noise_figure", alias = "nf")]
         noise_figure_db: Option<f64>,
+        #[serde(alias = "output_p1db", alias = "op1db")]
         output_p1db_dbm: Option<f64>,
     },
     Include {
@@ -63,9 +68,13 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     // but the TOML contains BlockConfigs
     #[derive(Deserialize)]
     struct IntermediateConfig {
+        #[serde(alias = "input_power", alias = "pin")]
         input_power_dbm: f64,
+        #[serde(alias = "frequency", alias = "f")]
         frequency_hz: f64,
+        #[serde(alias = "bandwidth", alias = "bw")]
         bandwidth_hz: Option<f64>,
+        #[serde(alias = "noise_temperature")]
         noise_temperature_k: Option<f64>,
         blocks: Vec<BlockConfig>,
     }
@@ -545,5 +554,57 @@ mod tests {
             "Frequency 11000000000 Hz not found in touchstone file ntwk3.s2p"
         );
         // this ^ `ntwk3.s2p` is relative to the config file path, not the folder you run the program from
+    }
+
+    #[test]
+    fn test_optional_units_parsing() {
+        let toml_content = r#"
+            pin = -30.0
+            f = 10.0e9
+            bw = 1.0e6
+            noise_temperature = 290.0
+            [[blocks]]
+            type = "explicit"
+            name = "LNA"
+            gain = 20.0
+            nf = 2.0
+            op1db = 10.0
+        "#;
+
+        #[derive(Deserialize, Debug)]
+        struct IntermediateConfig {
+            #[serde(alias = "input_power", alias = "pin")]
+            input_power_dbm: f64,
+            #[serde(alias = "frequency", alias = "f")]
+            frequency_hz: f64,
+            #[serde(alias = "bandwidth", alias = "bw")]
+            bandwidth_hz: Option<f64>,
+            #[serde(alias = "noise_temperature")]
+            noise_temperature_k: Option<f64>,
+            blocks: Vec<BlockConfig>,
+        }
+
+        let config: IntermediateConfig = toml::from_str(toml_content).unwrap();
+
+        assert_eq!(config.input_power_dbm, -30.0);
+        assert_eq!(config.frequency_hz, 10.0e9);
+        assert_eq!(config.bandwidth_hz, Some(1.0e6));
+        assert_eq!(config.noise_temperature_k, Some(290.0));
+        assert_eq!(config.blocks.len(), 1);
+
+        if let BlockConfig::Explicit {
+            name,
+            gain_db,
+            noise_figure_db,
+            output_p1db_dbm,
+        } = &config.blocks[0]
+        {
+            assert_eq!(name, "LNA");
+            assert_eq!(*gain_db, 20.0);
+            assert_eq!(*noise_figure_db, 2.0);
+            assert_eq!(*output_p1db_dbm, Some(10.0));
+        } else {
+            panic!("Expected Explicit block");
+        }
     }
 }
