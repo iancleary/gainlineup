@@ -1,0 +1,7 @@
+input_power_dbm = -60.0
+frequency_hz = 11.0e9
+
+[[blocks]]
+type = "touchstone"
+file_path = "ntwk3.s2p"
+name = "Touchstone Block that doesn't contain the 11 GHz frequency specified in the input"

@@ -124,11 +124,24 @@ fn load_blocks_recursive(
             } => {
                 // Touchstone files might also be relative to the config file
                 let full_path = base_dir.join(&file_path);
-                let gain = touchstone_file_path_and_frequency_to_gain(
+                let TouchstoneValid {
+                    contains_frequency,
+                    gain,
+                } = touchstone_file_path_and_frequency_to_struct(
                     full_path.to_string_lossy().to_string(),
                     frequency,
                 );
 
+                if !contains_frequency {
+                    let file_path_relative_to_config = file_path.clone();
+                    return Err(format!(
+                        "Frequency {} Hz not found in touchstone file {}",
+                        frequency, file_path_relative_to_config
+                    )
+                    .into());
+                }
+
+                let gain = gain.unwrap();
                 let noise_figure_default = -gain; // only handles passives right now
                 let output_p1db_default = 99.0; // 99 dBm
 
@@ -156,8 +169,28 @@ fn load_blocks_recursive(
     Ok(())
 }
 
-pub fn touchstone_file_path_and_frequency_to_gain(file_path: String, frequency_in_hz: f64) -> f64 {
+pub struct TouchstoneValid {
+    contains_frequency: bool,
+    gain: Option<f64>,
+}
+
+pub fn touchstone_file_path_and_frequency_to_struct(
+    file_path: String,
+    frequency_in_hz: f64,
+) -> TouchstoneValid {
     let s2p = Network::new(file_path.clone());
+
+    // check if frequency is within the touchstone file
+
+    let frequency_vector = s2p.f.clone();
+    let contains_frequency = frequency_vector.contains(&frequency_in_hz);
+
+    if !contains_frequency {
+        return TouchstoneValid {
+            contains_frequency: false,
+            gain: None,
+        };
+    }
 
     let gain_vector = s2p.s_db(2, 1); // uses 1-based indexing
 
@@ -168,7 +201,10 @@ pub fn touchstone_file_path_and_frequency_to_gain(file_path: String, frequency_i
         .s_db
         .decibel();
 
-    gain
+    TouchstoneValid {
+        contains_frequency: true,
+        gain: Some(gain),
+    }
 }
 
 fn calculate_gainlineup(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
@@ -177,6 +213,7 @@ fn calculate_gainlineup(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
     full_cascade
 }
 
+#[derive(Debug)]
 pub struct Command {}
 
 impl Command {
@@ -461,5 +498,52 @@ mod tests {
         // Version should be in format X.Y.Z
         let parts: Vec<&str> = version.split('.').collect();
         assert_eq!(parts.len(), 3, "Version should be in X.Y.Z format");
+    }
+
+    #[test]
+    fn test_touchstone_file_path_and_frequency_to_gain() {
+        let touchstone_file_path = "files/touchstone_options/ntwk3.s2p";
+        let frequency_in_hz = 6.0e9;
+        let TouchstoneValid {
+            contains_frequency,
+            gain,
+        } = touchstone_file_path_and_frequency_to_struct(
+            touchstone_file_path.to_string(),
+            frequency_in_hz,
+        );
+
+        let gain = gain.unwrap();
+        assert!(contains_frequency);
+
+        let gain_rounded_to_3_decimal_places = (gain * 1e3).round() / 1e3;
+        assert_eq!(gain_rounded_to_3_decimal_places, -3.932);
+    }
+
+    #[test]
+    fn test_touchstone_file_path_and_frequency_to_gain_not_found() {
+        let touchstone_file_path = "files/touchstone_options/ntwk3.s2p";
+        let frequency_in_hz = 11.0e9;
+        let TouchstoneValid {
+            contains_frequency,
+            gain,
+        } = touchstone_file_path_and_frequency_to_struct(
+            touchstone_file_path.to_string(),
+            frequency_in_hz,
+        );
+        assert!(!contains_frequency);
+        assert_eq!(gain, None);
+    }
+
+    #[test]
+    fn test_run_invalid_touchstone_frequency_error() {
+        let config_path = "files/touchstone_invalid_frequency/config.toml";
+        let args = vec![String::from("program_name"), config_path.to_string()];
+        let result = Command::run(&args);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Frequency 11000000000 Hz not found in touchstone file ntwk3.s2p"
+        );
+        // this ^ `ntwk3.s2p` is relative to the config file path, not the folder you run the program from
     }
 }

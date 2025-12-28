@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Gain Lineup Cascade</title>
+<style>
+table { border-collapse: collapse; }
+.cascade { width: 100%; }
+.parameters { width: auto; }
+.parameters td:nth-child(2) { text-align: right; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background-color: #f2f2f2; }
+tr:nth-child(even) { background-color: #f9f9f9; }
+table.cascade tr:first-child th { text-align: center; }
+</style>
+</head>
+<body>
+<h1>Gain Lineup Cascade</h1>
+<h2>Input Parameters</h2>
+<table class="parameters">
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Unit</th>
+</tr>
+<tr>
+<td>Input Power</td>
+<td>-60.00</td>
+<td>dBm</td>
+</tr>
+<tr>
+<td>Frequency</td>
+<td>6.00</td>
+<td>GHz</td>
+</tr>
+<tr>
+<td>Bandwidth</td>
+<td>100.00</td>
+<td>Hz</td>
+</tr>
+</table>
+<br>
+<h2>Signal Cascade</h2>
+<table class="cascade">
+<tr>
+<th colspan="1">Identity</th>
+<th colspan="4">Block Definition</th>
+<th colspan="3">Signal Power</th>
+<th colspan="2">Cumulative Stats</th>
+<th colspan="6">Noise Analysis</th>
+<th colspan="1">Signal Quality</th>
+</tr>
+<tr>
+<th>Stage</th>
+<th>Name</th>
+<th>Gain (dB)</th>
+<th>NF (dB)</th>
+<th>Output P1dB (dBm)</th>
+<th>Input Power (dBm)</th>
+<th>Output Power (dBm)</th>
+<th>Power Gain (dB)</th>
+<th>Cumulative Gain (dB)</th>
+<th>Cumulative NF (dB)</th>
+<th>Input Noise Temperature (K)</th>
+<th>Output Noise Temperature (K)</th>
+<th>Input Noise Spectral Density (dBm/Hz)</th>
+<th>Output Noise Spectral Density (dBm/Hz)</th>
+<th>Input Noise Power (dBm)</th>
+<th>Output Noise Power (dBm)</th>
+<th>Signal-to-Noise Ratio (dB)</th>
+</tr>
+<tr>
+<td>0</td>
+<td>Touchstone Block w/ noise figure and OP1dB compression point (ntwk3.s2p) Output</td>
+<td>-3.93</td>
+<td>3.93</td>
+<td>99.00</td>
+<td>-60.00</td>
+<td>-63.93</td>
+<td>-3.93</td>
+<td>-3.93</td>
+<td>3.93</td>
+<td>290.00</td>
+<td>1346.25</td>
+<td>-173.98</td>
+<td>-172.90</td>
+<td>-153.98</td>
+<td>-152.90</td>
+<td>88.97</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Touchstone Block w/ OP1dB compression point (ntwk3.s2p) Output</td>
+<td>-3.93</td>
+<td>3.93</td>
+<td>99.00</td>
+<td>-63.93</td>
+<td>-67.86</td>
+<td>-3.93</td>
+<td>-7.86</td>
+<td>6.33</td>
+<td>1346.25</td>
+<td>1874.38</td>
+<td>-172.90</td>
+<td>-172.53</td>
+<td>-152.90</td>
+<td>-152.53</td>
+<td>84.66</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Touchstone Block w/ noise figure (ntwk3.s2p) Output</td>
+<td>-3.93</td>
+<td>3.93</td>
+<td>99.00</td>
+<td>-67.86</td>
+<td>-71.80</td>
+<td>-3.93</td>
+<td>-11.80</td>
+<td>8.38</td>
+<td>1874.38</td>
+<td>2626.48</td>
+<td>-172.53</td>
+<td>-172.39</td>
+<td>-152.53</td>
+<td>-152.39</td>
+<td>80.59</td>
+</tr>
+</table>
+</body>
+</html>
