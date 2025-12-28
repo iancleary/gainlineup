@@ -49,33 +49,33 @@ mod tests {
     fn two_part_node_cascade_vector_return_output() {
         let input_power: f64 = -30.0;
         let input = super::Input {
-            power: input_power,
-            frequency: 1.0e9, // 1 GHz
-            bandwidth: 0.0,   // CW
-            noise_temperature: Some(270.0),
+            power_dbm: input_power,
+            frequency_hz: 1.0e9, // 1 GHz
+            bandwidth_hz: 0.0,   // CW
+            noise_temperature_k: Some(270.0),
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
-            gain: 30.0,
-            noise_figure: 3.0,
-            output_p1db: None,
+            gain_db: 30.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
-            gain: -6.0,
-            noise_figure: 6.0,
-            output_p1db: None,
+            gain_db: -6.0,
+            noise_figure_db: 6.0,
+            output_p1db_dbm: None,
         };
         let blocks = vec![amplifier, attenuator];
         let output_node = super::cascade_vector_return_output(input, blocks);
 
-        assert_eq!(output_node.signal_power, -6.0);
-        assert_eq!(output_node.cumulative_gain, 24.0);
+        assert_eq!(output_node.signal_power_dbm, -6.0);
+        assert_eq!(output_node.cumulative_gain_db, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
 
         // round to 3 decimal places for comparison, because floating point math is not exact
-        let rounded_noise_figure = (output_node.cumulative_noise_figure * 1e3).round() / 1e3;
+        let rounded_noise_figure = (output_node.cumulative_noise_figure_db * 1e3).round() / 1e3;
         assert_eq!(rounded_noise_figure, 3.006);
     }
 
@@ -83,34 +83,34 @@ mod tests {
     fn two_part_node_cascade_vector_return_vector() {
         let input_power: f64 = -30.0;
         let input = super::Input {
-            power: input_power,
-            frequency: 1.0e9, // 1 GHz
-            bandwidth: 0.0,   // CW
-            noise_temperature: Some(270.0),
+            power_dbm: input_power,
+            frequency_hz: 1.0e9, // 1 GHz
+            bandwidth_hz: 0.0,   // CW
+            noise_temperature_k: Some(270.0),
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
-            gain: 30.0,
-            noise_figure: 3.0,
-            output_p1db: None,
+            gain_db: 30.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
-            gain: -6.0,
-            noise_figure: 6.0,
-            output_p1db: None,
+            gain_db: -6.0,
+            noise_figure_db: 6.0,
+            output_p1db_dbm: None,
         };
         let blocks = vec![amplifier, attenuator];
         let cascade_vector = super::cascade_vector_return_vector(input, blocks);
 
         let output_node = cascade_vector.last().unwrap();
-        assert_eq!(output_node.signal_power, -6.0);
-        assert_eq!(output_node.cumulative_gain, 24.0);
+        assert_eq!(output_node.signal_power_dbm, -6.0);
+        assert_eq!(output_node.cumulative_gain_db, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
 
         // round to 3 decimal places for comparison, because floating point math is not exact
-        let rounded_noise_figure = (output_node.cumulative_noise_figure * 1e3).round() / 1e3;
+        let rounded_noise_figure = (output_node.cumulative_noise_figure_db * 1e3).round() / 1e3;
         assert_eq!(rounded_noise_figure, 3.006);
     }
 
@@ -118,40 +118,40 @@ mod tests {
     fn two_part_node_cascade_vector_return_vector_with_compression() {
         let input_power: f64 = -30.0;
         let input = super::Input {
-            power: input_power,
-            frequency: 1.0e9, // 1 GHz
-            bandwidth: 0.0,   // CW
-            noise_temperature: Some(270.0),
+            power_dbm: input_power,
+            frequency_hz: 1.0e9, // 1 GHz
+            bandwidth_hz: 0.0,   // CW
+            noise_temperature_k: Some(270.0),
         };
         let low_noise_amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
-            gain: 30.0,
-            noise_figure: 3.0,
-            output_p1db: Some(5.0),
+            gain_db: 30.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(5.0),
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
-            gain: -6.0,
-            noise_figure: 6.0,
-            output_p1db: None,
+            gain_db: -6.0,
+            noise_figure_db: 6.0,
+            output_p1db_dbm: None,
         };
         let high_power_amplifier = super::Block {
             name: "High Power Amplifier".to_string(),
-            gain: 30.0,
-            noise_figure: 3.0,
-            output_p1db: Some(20.0),
+            gain_db: 30.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(20.0),
         };
         let blocks = vec![low_noise_amplifier, attenuator, high_power_amplifier];
         let cascade_vector = super::cascade_vector_return_vector(input, blocks);
 
         let output_node = cascade_vector.last().unwrap();
-        assert_eq!(output_node.signal_power, 21.0);
-        assert_eq!(output_node.cumulative_gain, 51.0);
+        assert_eq!(output_node.signal_power_dbm, 21.0);
+        assert_eq!(output_node.cumulative_gain_db, 51.0);
 
         assert_eq!(output_node.name, "High Power Amplifier Output");
 
         // round to 3 decimal places for comparison, because floating point math is not exact
-        let rounded_noise_figure = (output_node.cumulative_noise_figure * 1e3).round() / 1e3;
+        let rounded_noise_figure = (output_node.cumulative_noise_figure_db * 1e3).round() / 1e3;
         assert_eq!(rounded_noise_figure, 3.008);
     }
 }

@@ -7,27 +7,27 @@ use crate::constants;
 #[derive(Clone, Debug)]
 pub struct Block {
     pub name: String,
-    pub gain: f64,                // dB
-    pub noise_figure: f64,        // dB, nf would be ambiguous between noise factor and noise figure
-    pub output_p1db: Option<f64>, // dBm, output 1 dB compression point
+    pub gain_db: f64,                 // dB
+    pub noise_figure_db: f64, // dB, nf would be ambiguous between noise factor and noise figure
+    pub output_p1db_dbm: Option<f64>, // dBm, output 1 dB compression point
 }
 
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.output_p1db.is_some() {
+        if self.output_p1db_dbm.is_some() {
             write!(
                 f,
                 "Block {{ name: {}, gain: {}, noise_figure: {}, output_p1db: {} }}",
                 self.name,
-                self.gain,
-                self.noise_figure,
-                self.output_p1db.unwrap()
+                self.gain_db,
+                self.noise_figure_db,
+                self.output_p1db_dbm.unwrap()
             )
         } else {
             write!(
                 f,
                 "Block {{ name: {}, gain: {}, noise_figure: {} }}",
-                self.name, self.gain, self.noise_figure
+                self.name, self.gain_db, self.noise_figure_db
             )
         }
     }
@@ -37,19 +37,19 @@ impl Default for Block {
     fn default() -> Self {
         Self {
             name: String::from("default"),
-            gain: 0.0,
-            noise_figure: 0.0,
-            output_p1db: None,
+            gain_db: 0.0,
+            noise_figure_db: 0.0,
+            output_p1db_dbm: None,
         }
     }
 }
 impl Block {
     pub fn noise_temperature(&self) -> f64 {
-        rfconversions::noise::noise_temperature_from_noise_figure(self.noise_figure)
+        rfconversions::noise::noise_temperature_from_noise_figure(self.noise_figure_db)
     }
 
     pub fn noise_factor(&self) -> f64 {
-        rfconversions::noise::noise_factor_from_noise_figure(self.noise_figure)
+        rfconversions::noise::noise_factor_from_noise_figure(self.noise_figure_db)
     }
 
     // input noise power (F-1)*kTB
@@ -91,8 +91,8 @@ impl Block {
         // the saturation point is the point where the compression ends
         // this probably would be a polynomial fit, but for initial documentation of the idea,
         // it's a simple linear fit
-        let output_power_without_compression = input_power + self.gain;
-        if let Some(op1db) = self.output_p1db {
+        let output_power_without_compression = input_power + self.gain_db;
+        if let Some(op1db) = self.output_p1db_dbm {
             if output_power_without_compression > op1db + 1.0 {
                 return op1db + 1.0;
             }
@@ -112,9 +112,9 @@ mod tests {
     #[test]
     fn default() {
         let block = Block::default();
-        assert_eq!(block.gain, 0.0);
-        assert_eq!(block.noise_figure, 0.0);
-        assert_eq!(block.output_p1db, None);
+        assert_eq!(block.gain_db, 0.0);
+        assert_eq!(block.noise_figure_db, 0.0);
+        assert_eq!(block.output_p1db_dbm, None);
         assert_eq!(block.noise_temperature(), 0.0);
     }
 
@@ -123,9 +123,9 @@ mod tests {
         let input_power: f64 = -30.0;
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
-            gain: 10.0,
-            noise_figure: 3.0,
-            output_p1db: None,
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
         };
         let output_power = amplifier.output_power(input_power);
 
@@ -137,9 +137,9 @@ mod tests {
         let input_power: f64 = -30.0;
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
-            gain: 10.0,
-            noise_figure: 3.0,
-            output_p1db: Some(-20.0),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(-20.0),
         };
         let output_power = amplifier.output_power(input_power);
 
@@ -154,9 +154,9 @@ mod tests {
         let input_power: f64 = -25.0;
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
-            gain: 10.0,
-            noise_figure: 3.0,
-            output_p1db: Some(-20.0),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(-20.0),
         };
         let output_power = amplifier.output_power(input_power);
 

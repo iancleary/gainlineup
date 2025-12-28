@@ -21,10 +21,10 @@ use serde::Deserialize;
 //
 #[derive(Debug)]
 pub struct Config {
-    pub input_power: f64,
-    pub frequency: f64,
-    pub bandwidth: Option<f64>,
-    pub noise_temperature: Option<f64>,
+    pub input_power_dbm: f64,
+    pub frequency_hz: f64,
+    pub bandwidth_hz: Option<f64>,
+    pub noise_temperature_k: Option<f64>,
     pub blocks: Vec<Block>,
 }
 
@@ -63,10 +63,10 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     // but the TOML contains BlockConfigs
     #[derive(Deserialize)]
     struct IntermediateConfig {
-        input_power: f64,
-        frequency: f64,
-        bandwidth: Option<f64>,
-        noise_temperature: Option<f64>,
+        input_power_dbm: f64,
+        frequency_hz: f64,
+        bandwidth_hz: Option<f64>,
+        noise_temperature_k: Option<f64>,
         blocks: Vec<BlockConfig>,
     }
 
@@ -79,7 +79,7 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
 
     load_blocks_recursive(
         intermediate_config.blocks,
-        intermediate_config.frequency,
+        intermediate_config.frequency_hz,
         &mut blocks,
         base_dir,
     )?;
@@ -87,10 +87,10 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     // println!("\n----------------------------\n");
 
     Ok(Config {
-        input_power: intermediate_config.input_power,
-        frequency: intermediate_config.frequency,
-        bandwidth: intermediate_config.bandwidth,
-        noise_temperature: intermediate_config.noise_temperature,
+        input_power_dbm: intermediate_config.input_power_dbm,
+        frequency_hz: intermediate_config.frequency_hz,
+        bandwidth_hz: intermediate_config.bandwidth_hz,
+        noise_temperature_k: intermediate_config.noise_temperature_k,
         blocks,
     })
 }
@@ -111,9 +111,9 @@ fn load_blocks_recursive(
             } => {
                 blocks.push(Block {
                     name,
-                    gain,
-                    noise_figure,
-                    output_p1db,
+                    gain_db: gain,
+                    noise_figure_db: noise_figure,
+                    output_p1db_dbm: output_p1db,
                 });
             }
             BlockConfig::Touchstone {
@@ -137,9 +137,9 @@ fn load_blocks_recursive(
 
                 blocks.push(Block {
                     name,
-                    gain,
-                    noise_figure: final_noise_figure,
-                    output_p1db: final_output_p1db,
+                    gain_db: gain,
+                    noise_figure_db: final_noise_figure,
+                    output_p1db_dbm: final_output_p1db,
                 });
             }
             BlockConfig::Include { path } => {
@@ -224,10 +224,10 @@ impl Command {
                 // println!("\n----------------------------\n");
 
                 let input = Input {
-                    power: config.input_power,
-                    frequency: config.frequency,
-                    bandwidth: config.bandwidth.unwrap_or(100.0), // CW in real life
-                    noise_temperature: Some(config.noise_temperature.unwrap_or(290.0)), // 290K is standard
+                    power_dbm: config.input_power_dbm,
+                    frequency_hz: config.frequency_hz,
+                    bandwidth_hz: config.bandwidth_hz.unwrap_or(100.0), // CW in real life
+                    noise_temperature_k: Some(config.noise_temperature_k.unwrap_or(290.0)), // 290K is standard
                 };
                 let cascade = calculate_gainlineup(input.clone(), config.blocks.clone());
                 // println!("\n----------------------------\n");
@@ -352,37 +352,40 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
         if i == 0 {
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
-            println!("Input Level {:>8.2} dBm", node.signal_power);
+            println!("Input Level {:>8.2} dBm", node.signal_power_dbm);
         } else {
             // let block_gain = node.power - cascade[i - 1].power;
-            let block_gain = blocks[i - 1].gain;
-            let input_power = node.signal_power - block_gain;
+            let block_gain = blocks[i - 1].gain_db;
+            let input_power = node.signal_power_dbm - block_gain;
 
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
             println!("Input Power\t\t{:>8.2} dBm", input_power);
             println!("Block Gain:\t\t{:>8.2} dB", block_gain);
-            println!("Block NF:\t\t{:>8.2} dB", blocks[i - 1].noise_figure);
-            println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain);
+            println!("Block NF:\t\t{:>8.2} dB", blocks[i - 1].noise_figure_db);
+            println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain_db);
             println!(
                 "Cumulative Noise Figure:{:>8.2} dB",
-                node.cumulative_noise_figure
+                node.cumulative_noise_figure_db
             );
-            println!("Output Power\t\t{:>8.2} dBm", node.signal_power);
+            println!("Output Power\t\t{:>8.2} dBm", node.signal_power_dbm);
         }
     }
     println!();
     println!("Final Cascade Summary:");
     println!("----------------------");
     println!("Number of Blocks: {}", cascade.len() - 1);
-    println!("Pin:\t{:>8.2} dBm", cascade[0].signal_power);
+    println!("Pin:\t{:>8.2} dBm", cascade[0].signal_power_dbm);
 
-    let final_output_power = cascade.last().unwrap().signal_power;
+    let final_output_power = cascade.last().unwrap().signal_power_dbm;
     println!("Pout:\t{:>8.2} dBm", final_output_power);
-    println!("Gain:\t{:>8.2} dB", cascade.last().unwrap().cumulative_gain);
+    println!(
+        "Gain:\t{:>8.2} dB",
+        cascade.last().unwrap().cumulative_gain_db
+    );
     println!(
         "NF:\t{:>8.2} dB",
-        cascade.last().unwrap().cumulative_noise_figure
+        cascade.last().unwrap().cumulative_noise_figure_db
     );
 }
 
