@@ -38,15 +38,15 @@ struct IncludedConfig {
 enum BlockConfig {
     Explicit {
         name: String,
-        gain: f64,
-        noise_figure: f64,
-        output_p1db: Option<f64>,
+        gain_db: f64,
+        noise_figure_db: f64,
+        output_p1db_dbm: Option<f64>,
     },
     Touchstone {
         file_path: String,
         name: String,
-        noise_figure: Option<f64>,
-        output_p1db: Option<f64>,
+        noise_figure_db: Option<f64>,
+        output_p1db_dbm: Option<f64>,
     },
     Include {
         path: String,
@@ -105,22 +105,22 @@ fn load_blocks_recursive(
         match block_config {
             BlockConfig::Explicit {
                 name,
-                gain,
-                noise_figure,
-                output_p1db,
+                gain_db,
+                noise_figure_db,
+                output_p1db_dbm,
             } => {
                 blocks.push(Block {
                     name,
-                    gain_db: gain,
-                    noise_figure_db: noise_figure,
-                    output_p1db_dbm: output_p1db,
+                    gain_db,
+                    noise_figure_db,
+                    output_p1db_dbm,
                 });
             }
             BlockConfig::Touchstone {
                 file_path,
                 name,
-                noise_figure,
-                output_p1db,
+                noise_figure_db,
+                output_p1db_dbm,
             } => {
                 // Touchstone files might also be relative to the config file
                 let full_path = base_dir.join(&file_path);
@@ -132,8 +132,8 @@ fn load_blocks_recursive(
                 let noise_figure_default = -gain; // only handles passives right now
                 let output_p1db_default = 99.0; // 99 dBm
 
-                let final_noise_figure = noise_figure.unwrap_or(noise_figure_default);
-                let final_output_p1db = output_p1db.or(Some(output_p1db_default));
+                let final_noise_figure = noise_figure_db.unwrap_or(noise_figure_default);
+                let final_output_p1db = output_p1db_dbm.or(Some(output_p1db_default));
 
                 blocks.push(Block {
                     name,
