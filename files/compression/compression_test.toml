@@ -1,22 +1,22 @@
-input_power = -30.0
-frequency = 1.0e9
+input_power_dbm = -30.0
+frequency_hz = 1.0e9
 
 [[blocks]]
 type = "explicit"
 name = "Low Noise Amplifier"
-gain = 30.0
-noise_figure = 3.0
-output_p1db = 5.0
+gain_db = 30.0
+noise_figure_db = 3.0
+output_p1db_dbm = 5.0
 
 [[blocks]]
 type = "explicit"
 name = "Attenuator"
-gain = -6.0
-noise_figure = 6.0
+gain_db = -6.0
+noise_figure_db = 6.0
 
 [[blocks]]
 type = "explicit"
 name = "High Power Amplifier"
-gain = 30.0
-noise_figure = 3.0
-output_p1db = 20.0
+gain_db = 30.0
+noise_figure_db = 3.0
+output_p1db_dbm = 20.0

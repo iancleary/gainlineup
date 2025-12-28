@@ -1,5 +1,5 @@
-input_power = -60.0
-frequency = 6.0e9
+input_power_dbm = -60.0
+frequency_hz = 6.0e9
 
 [[blocks]]
 type = "touchstone"

@@ -62,19 +62,19 @@ pub fn generate_html_table(
     writeln!(file, "</tr>")?;
     writeln!(file, "<tr>")?;
     writeln!(file, "<td>Input Power</td>")?;
-    writeln!(file, "<td>{:.2}</td>", input.power)?;
+    writeln!(file, "<td>{:.2}</td>", input.power_dbm)?;
     writeln!(file, "<td>dBm</td>")?;
     writeln!(file, "</tr>")?;
     writeln!(file, "<tr>")?;
     writeln!(file, "<td>Frequency</td>")?;
-    let (freq_val, freq_unit) = format_hz(input.frequency);
+    let (freq_val, freq_unit) = format_hz(input.frequency_hz);
     writeln!(file, "<td>{:.2}</td>", freq_val)?;
     writeln!(file, "<td>{}</td>", freq_unit)?;
     writeln!(file, "</tr>")?;
     writeln!(file, "<tr>")?;
     writeln!(file, "<td>Bandwidth</td>")?;
-    if input.bandwidth > 0.0 {
-        let (bw_val, bw_unit) = format_hz(input.bandwidth);
+    if input.bandwidth_hz > 0.0 {
+        let (bw_val, bw_unit) = format_hz(input.bandwidth_hz);
         writeln!(file, "<td>{:.2}</td>", bw_val)?;
         writeln!(file, "<td>{}</td>", bw_unit)?;
     } else {
@@ -123,30 +123,30 @@ pub fn generate_html_table(
 
         let block = &blocks[i];
 
-        writeln!(file, "<td>{:.2}</td>", block.gain)?;
-        writeln!(file, "<td>{:.2}</td>", block.noise_figure)?;
-        if let Some(p1db) = block.output_p1db {
+        writeln!(file, "<td>{:.2}</td>", block.gain_db)?;
+        writeln!(file, "<td>{:.2}</td>", block.noise_figure_db)?;
+        if let Some(p1db) = block.output_p1db_dbm {
             writeln!(file, "<td>{:.2}</td>", p1db)?;
         } else {
             writeln!(file, "<td>-</td>")?;
         }
 
         let actual_input_power = if i == 0 {
-            input.power
+            input.power_dbm
         } else {
-            cascade[i - 1].signal_power
+            cascade[i - 1].signal_power_dbm
         };
 
         writeln!(file, "<td>{:.2}</td>", actual_input_power)?;
-        writeln!(file, "<td>{:.2}</td>", node.signal_power)?;
+        writeln!(file, "<td>{:.2}</td>", node.signal_power_dbm)?;
         writeln!(file, "<td>{:.2}</td>", block.power_gain(actual_input_power))?;
-        writeln!(file, "<td>{:.2}</td>", node.cumulative_gain)?;
-        writeln!(file, "<td>{:.2}</td>", node.cumulative_noise_figure)?;
+        writeln!(file, "<td>{:.2}</td>", node.cumulative_gain_db)?;
+        writeln!(file, "<td>{:.2}</td>", node.cumulative_noise_figure_db)?;
 
         // input noise temperature
         if i == 0 {
-            if input.noise_temperature.is_some() {
-                let noise_temperature = input.noise_temperature.unwrap();
+            if input.noise_temperature_k.is_some() {
+                let noise_temperature = input.noise_temperature_k.unwrap();
                 writeln!(file, "<td>{:.2}</td>", noise_temperature)?;
             } else {
                 writeln!(file, "<td>-</td>")?;
@@ -179,10 +179,10 @@ pub fn generate_html_table(
         if i == 0 {
             writeln!(file, "<td>{:.2}</td>", input.noise_power())?;
         } else {
-            writeln!(file, "<td>{:.2}</td>", cascade[i - 1].noise_power)?;
+            writeln!(file, "<td>{:.2}</td>", cascade[i - 1].noise_power_dbm)?;
         }
-        writeln!(file, "<td>{:.2}</td>", node.noise_power)?;
-        writeln!(file, "<td>{:.2}</td>", node.signal_to_noise_ratio())?;
+        writeln!(file, "<td>{:.2}</td>", node.noise_power_dbm)?;
+        writeln!(file, "<td>{:.2}</td>", node.signal_to_noise_ratio_db())?;
         writeln!(file, "</tr>")?;
     }
 

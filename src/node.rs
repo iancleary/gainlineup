@@ -5,13 +5,13 @@ use crate::block::Block;
 
 #[derive(Clone, Debug)]
 pub struct SignalNode {
-    pub name: String,          // name of node, like "Input" or "Amplifier 1 Output"
-    pub signal_frequency: f64, // Hz
-    pub signal_bandwidth: f64, // Hz
-    pub signal_power: f64,     // dBm
-    pub noise_power: f64,      // dBm
-    pub cumulative_noise_figure: f64, // dB, linear
-    pub cumulative_gain: f64,  // cumulative, dB (set to 0 at start)
+    pub name: String,             // name of node, like "Input" or "Amplifier 1 Output"
+    pub signal_frequency_hz: f64, // Hz
+    pub signal_bandwidth_hz: f64, // Hz
+    pub signal_power_dbm: f64,    // dBm
+    pub noise_power_dbm: f64,     // dBm
+    pub cumulative_noise_figure_db: f64, // dB, linear
+    pub cumulative_gain_db: f64,  // cumulative, dB (set to 0 at start)
     pub cumulative_noise_temperature: Option<f64>,
 }
 
@@ -20,7 +20,7 @@ impl fmt::Display for SignalNode {
         write!(
             f,
             "SignalNode {{ name: {}, signal_power: {}, noise_power: {}, signal_frequency: {}, signal_bandwidth: {}, cumulative_noise_figure: {}, cumulative_gain: {} }}",
-            self.name, self.signal_power, self.noise_power, self.signal_frequency, self.signal_bandwidth, self.cumulative_noise_figure, self.cumulative_gain
+            self.name, self.signal_power_dbm, self.noise_power_dbm, self.signal_frequency_hz, self.signal_bandwidth_hz, self.cumulative_noise_figure_db, self.cumulative_gain_db
         )
     }
 }
@@ -29,12 +29,12 @@ impl Default for SignalNode {
     fn default() -> Self {
         Self {
             name: String::from("default"),
-            signal_frequency: 0.0, // placeholder value, you should change this
-            signal_bandwidth: 0.0, // placeholder value, you should change this
-            signal_power: 0.0,     // placeholder value, you should change this
-            noise_power: 0.0,      // placeholder value, you should change this
-            cumulative_noise_figure: 0.0, // no contribution
-            cumulative_gain: 1.0,  // default assuming start of cascade
+            signal_frequency_hz: 0.0, // placeholder value, you should change this
+            signal_bandwidth_hz: 0.0, // placeholder value, you should change this
+            signal_power_dbm: 0.0,    // placeholder value, you should change this
+            noise_power_dbm: 0.0,     // placeholder value, you should change this
+            cumulative_noise_figure_db: 0.0, // no contribution
+            cumulative_gain_db: 1.0,  // default assuming start of cascade
             cumulative_noise_temperature: None,
         }
     }
@@ -43,7 +43,7 @@ impl Default for SignalNode {
 impl SignalNode {
     pub fn noise_spectral_density(&self) -> f64 {
         let noise_spectral_density_dbm_per_hz =
-            self.noise_power - self.signal_bandwidth.log10() * 10.0;
+            self.noise_power_dbm - self.signal_bandwidth_hz.log10() * 10.0;
 
         println!(
             "Noise Spectral Density: (dBm/Hz) {}",
@@ -53,8 +53,8 @@ impl SignalNode {
         noise_spectral_density_dbm_per_hz
     }
 
-    pub fn signal_to_noise_ratio(&self) -> f64 {
-        let signal_to_noise_ratio_db = self.signal_power - self.noise_power;
+    pub fn signal_to_noise_ratio_db(&self) -> f64 {
+        let signal_to_noise_ratio_db = self.signal_power_dbm - self.noise_power_dbm;
 
         println!("Signal to Noise Ratio: (dB) {}", signal_to_noise_ratio_db);
 
@@ -66,21 +66,21 @@ impl SignalNode {
         let output_node_name = block.name.clone() + " Output";
 
         let block_noise_factor =
-            rfconversions::noise::noise_factor_from_noise_figure(block.noise_figure);
+            rfconversions::noise::noise_factor_from_noise_figure(block.noise_figure_db);
 
         let block_noise_temperature =
             rfconversions::noise::noise_temperature_from_noise_factor(block_noise_factor);
 
-        let stage_gain_linear = rfconversions::power::db_to_linear(block.gain);
+        let stage_gain_linear = rfconversions::power::db_to_linear(block.gain_db);
         let cumulative_gain_linear =
-            rfconversions::power::db_to_linear(self.cumulative_gain) + stage_gain_linear;
+            rfconversions::power::db_to_linear(self.cumulative_gain_db) + stage_gain_linear;
 
         // handle compression point
         // this is a simplification in that you can compress the block with noise
-        let output_power_without_compression = self.signal_power + block.gain;
-        let output_power = if let Some(output_p1db) = block.output_p1db {
-            if output_power_without_compression > output_p1db + 1.0 {
-                output_p1db + 1.0
+        let output_power_without_compression = self.signal_power_dbm + block.gain_db;
+        let output_power_dbm = if let Some(output_p1db_dbm) = block.output_p1db_dbm {
+            if output_power_without_compression > output_p1db_dbm + 1.0 {
+                output_p1db_dbm + 1.0
             } else {
                 output_power_without_compression
             }
@@ -88,7 +88,7 @@ impl SignalNode {
             output_power_without_compression
         };
 
-        let stage_power_gain = output_power - self.signal_power;
+        let stage_power_gain = output_power_dbm - self.signal_power_dbm;
 
         let cumulative_noise_factor =
             self.noise_factor() + (block_noise_factor - 1.0) / cumulative_gain_linear;
@@ -103,12 +103,12 @@ impl SignalNode {
             Some(270.0 + block_noise_temperature / cumulative_gain_linear)
         };
 
-        let input_noise_power = self.noise_power;
-        println!("Input Noise Power: (dBm) {}", input_noise_power);
-        let output_noise_power_from_node_dbm = input_noise_power + stage_power_gain;
+        let input_noise_power_dbm = self.noise_power_dbm;
+        println!("Input Noise Power: (dBm) {}", input_noise_power_dbm);
+        let output_noise_power_from_node_dbm = input_noise_power_dbm + stage_power_gain;
 
         let output_noise_power_from_block_dbm =
-            block.output_noise_power(self.signal_bandwidth, self.signal_power);
+            block.output_noise_power(self.signal_bandwidth_hz, self.signal_power_dbm);
 
         println!(
             "Output Noise Power from Node: (dBm) {}",
@@ -141,8 +141,8 @@ impl SignalNode {
             total_noise_power_at_output_dbm
         );
 
-        let output_frequency = self.signal_frequency;
-        let output_bandwidth = self.signal_bandwidth;
+        let output_frequency_hz = self.signal_frequency_hz;
+        let output_bandwidth_hz = self.signal_bandwidth_hz;
 
         // TODO: handle frequency and bandwidth changes, i.e. mixers, filters, etc.
 
@@ -150,22 +150,22 @@ impl SignalNode {
 
         SignalNode {
             name: output_node_name,
-            signal_frequency: output_frequency,
-            signal_bandwidth: output_bandwidth,
-            signal_power: output_power,
-            noise_power: total_noise_power_at_output_dbm,
-            cumulative_noise_figure,
-            cumulative_gain: self.cumulative_gain + stage_power_gain,
+            signal_frequency_hz: output_frequency_hz,
+            signal_bandwidth_hz: output_bandwidth_hz,
+            signal_power_dbm: output_power_dbm,
+            noise_power_dbm: total_noise_power_at_output_dbm,
+            cumulative_noise_figure_db: cumulative_noise_figure,
+            cumulative_gain_db: self.cumulative_gain_db + stage_power_gain,
             cumulative_noise_temperature,
         }
     }
 
     pub fn noise_factor(&self) -> f64 {
-        rfconversions::noise::noise_factor_from_noise_figure(self.cumulative_noise_figure)
+        rfconversions::noise::noise_factor_from_noise_figure(self.cumulative_noise_figure_db)
     }
 
     pub fn noise_temperature(&self) -> f64 {
-        rfconversions::noise::noise_temperature_from_noise_figure(self.cumulative_noise_figure)
+        rfconversions::noise::noise_temperature_from_noise_figure(self.cumulative_noise_figure_db)
     }
 }
 
@@ -177,32 +177,32 @@ mod tests {
         let input_power: f64 = -30.0;
         let input_node = super::SignalNode {
             name: "Input".to_string(),
-            signal_power: input_power,
-            noise_power: -174.0 * 10.0 * f64::log10(1.0e6), // assumes T = 290 K
-            signal_frequency: 1.0e9,                        // Hz
-            signal_bandwidth: 1.0e6,                        // Hz
-            cumulative_noise_figure: 5.0,                   // cumulative noise figure
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
+            signal_power_dbm: input_power,
+            noise_power_dbm: -174.0 * 10.0 * f64::log10(1.0e6), // assumes T = 290 K
+            signal_frequency_hz: 1.0e9,                         // Hz
+            signal_bandwidth_hz: 1.0e6,                         // Hz
+            cumulative_noise_figure_db: 5.0,                    // cumulative noise figure
+            cumulative_gain_db: 0.0, // starting/initial/input node of cascade
             cumulative_noise_temperature: None,
         };
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
-            gain: 10.0,
-            noise_figure: 5.0,
-            output_p1db: None,
+            gain_db: 10.0,
+            noise_figure_db: 5.0,
+            output_p1db_dbm: None,
         };
         let output_node = input_node.cascade_block(&amplifier);
 
-        assert_eq!(output_node.signal_power, -20.0);
+        assert_eq!(output_node.signal_power_dbm, -20.0);
         assert_eq!(output_node.name, "Simple Amplifier Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
-        let output_noise_figure = output_node.cumulative_noise_figure;
+        let output_noise_figure = output_node.cumulative_noise_figure_db;
 
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_noise_figure * 1e3).round() / 1e3;
         assert_eq!(rounded_noise_figure, 5.262);
-        assert_eq!(output_node.signal_frequency, 1.0e9);
-        assert_eq!(output_node.signal_bandwidth, 1.0e6);
+        assert_eq!(output_node.signal_frequency_hz, 1.0e9);
+        assert_eq!(output_node.signal_bandwidth_hz, 1.0e6);
     }
 
     #[test]
@@ -210,33 +210,33 @@ mod tests {
         let input_power: f64 = -30.0;
         let input_node = super::SignalNode {
             name: "Input".to_string(),
-            signal_power: input_power,
-            signal_frequency: 1.0e9,                        // Hz
-            signal_bandwidth: 1.0e6,                        // Hz
-            noise_power: -174.0 * 10.0 * f64::log10(1.0e6), // assumes T = 290 K
-            cumulative_noise_figure: 5.0,                   // cumulative noise figure
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
+            signal_power_dbm: input_power,
+            signal_frequency_hz: 1.0e9,                         // Hz
+            signal_bandwidth_hz: 1.0e6,                         // Hz
+            noise_power_dbm: -174.0 * 10.0 * f64::log10(1.0e6), // assumes T = 290 K
+            cumulative_noise_figure_db: 5.0,                    // cumulative noise figure
+            cumulative_gain_db: 0.0, // starting/initial/input node of cascade
             cumulative_noise_temperature: None,
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
-            gain: 30.0,
-            noise_figure: 3.0,
-            output_p1db: None,
+            gain_db: 30.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
         };
 
         let output_node = input_node.cascade_block(&amplifier);
 
-        assert_eq!(output_node.signal_power, 0.0);
+        assert_eq!(output_node.signal_power_dbm, 0.0);
         assert_eq!(output_node.name, "Low Noise Amplifier Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
-        let output_noise_figure = output_node.cumulative_noise_figure;
+        let output_noise_figure = output_node.cumulative_noise_figure_db;
 
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_noise_figure * 1e3).round() / 1e3;
         assert_eq!(rounded_noise_figure, 5.001);
-        assert_eq!(output_node.signal_frequency, 1.0e9);
-        assert_eq!(output_node.signal_bandwidth, 1.0e6);
+        assert_eq!(output_node.signal_frequency_hz, 1.0e9);
+        assert_eq!(output_node.signal_bandwidth_hz, 1.0e6);
     }
 
     #[test]
@@ -244,55 +244,55 @@ mod tests {
         let input_power: f64 = -30.0;
         let input_node = super::SignalNode {
             name: "Input".to_string(),
-            signal_power: input_power,
-            signal_frequency: 1.0e9,                        // Hz
-            signal_bandwidth: 1.0e6,                        // Hz
-            noise_power: -174.0 * 10.0 * f64::log10(1.0e6), // assumes T = 290 K
-            cumulative_noise_figure: 5.0,                   // cumulative noise figure
-            cumulative_gain: 0.0, // starting/initial/input node of cascade
+            signal_power_dbm: input_power,
+            signal_frequency_hz: 1.0e9,                         // Hz
+            signal_bandwidth_hz: 1.0e6,                         // Hz
+            noise_power_dbm: -174.0 * 10.0 * f64::log10(1.0e6), // assumes T = 290 K
+            cumulative_noise_figure_db: 5.0,                    // cumulative noise figure
+            cumulative_gain_db: 0.0, // starting/initial/input node of cascade
             cumulative_noise_temperature: None,
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
-            gain: 30.0,
-            noise_figure: 3.0,
-            output_p1db: None,
+            gain_db: 30.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
-            gain: -6.0,
-            noise_figure: 6.0,
-            output_p1db: None,
+            gain_db: -6.0,
+            noise_figure_db: 6.0,
+            output_p1db_dbm: None,
         };
         let intermediate_node = input_node.cascade_block(&amplifier);
 
-        assert_eq!(intermediate_node.cumulative_gain, 30.0);
+        assert_eq!(intermediate_node.cumulative_gain_db, 30.0);
 
         let output_node = intermediate_node.cascade_block(&attenuator);
 
-        assert_eq!(output_node.signal_power, -6.0);
-        assert_eq!(output_node.cumulative_gain, 24.0);
+        assert_eq!(output_node.signal_power_dbm, -6.0);
+        assert_eq!(output_node.cumulative_gain_db, 24.0);
 
         assert_eq!(output_node.name, "Attenuator Output");
         // assert_eq!(output_node.noise_temperature, rfconversions::noise::noise_temperature_from_noise_figure(3.0));
-        let output_noise_figure = output_node.cumulative_noise_figure;
+        let output_noise_figure = output_node.cumulative_noise_figure_db;
 
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_noise_figure * 1e3).round() / 1e3;
         assert_eq!(rounded_noise_figure, 5.005);
-        assert_eq!(output_node.signal_frequency, 1.0e9);
-        assert_eq!(output_node.signal_bandwidth, 1.0e6);
+        assert_eq!(output_node.signal_frequency_hz, 1.0e9);
+        assert_eq!(output_node.signal_bandwidth_hz, 1.0e6);
     }
     #[test]
     fn test_noise_spectral_density() {
         let node = super::SignalNode {
             name: "Test Node".to_string(),
-            signal_power: -50.0,
-            signal_frequency: 1e9,
-            signal_bandwidth: 1e6,
-            noise_power: -174.0 + 10.0 * f64::log10(1.0e6), // assumes T approximately = 290 K
-            cumulative_noise_figure: 3.0103,                // F=2
-            cumulative_gain: 0.0,
+            signal_power_dbm: -50.0,
+            signal_frequency_hz: 1e9,
+            signal_bandwidth_hz: 1e6,
+            noise_power_dbm: -174.0 + 10.0 * f64::log10(1.0e6), // assumes T approximately = 290 K
+            cumulative_noise_figure_db: 3.0103,                 // F=2
+            cumulative_gain_db: 0.0,
             cumulative_noise_temperature: None,
         };
 
@@ -320,17 +320,17 @@ mod tests {
     fn test_signal_to_noise_ratio() {
         let node = super::SignalNode {
             name: "SNR Node".to_string(),
-            signal_power: -100.0, // Signal
-            signal_frequency: 1e9,
-            signal_bandwidth: 1.0,                        // 1Hz
-            noise_power: -174.0 + 10.0 * f64::log10(1.0), // assumes T = 290 K
-            cumulative_noise_figure: 3.0103,              // Noise Power ~ -174 dBm
-            cumulative_gain: 0.0,
+            signal_power_dbm: -100.0, // Signal
+            signal_frequency_hz: 1e9,
+            signal_bandwidth_hz: 1.0,                         // 1Hz
+            noise_power_dbm: -174.0 + 10.0 * f64::log10(1.0), // assumes T = 290 K
+            cumulative_noise_figure_db: 3.0103,               // Noise Power ~ -174 dBm
+            cumulative_gain_db: 0.0,
             cumulative_noise_temperature: None,
         };
         // SNR = -100 - (-174) = 74 dB
-        let snr = node.signal_to_noise_ratio();
-        assert!((snr - 73.97).abs() < 0.1, "SNR should be approx 74 dB");
+        let snr_db = node.signal_to_noise_ratio_db();
+        assert!((snr_db - 73.97).abs() < 0.1, "SNR should be approx 74 dB");
     }
 
     #[test]
@@ -340,12 +340,12 @@ mod tests {
 
         let input_node = super::SignalNode {
             name: "Input".to_string(),
-            signal_power: -30.0,
-            signal_frequency: 1.0e9,
-            signal_bandwidth: 1.0e6,
-            noise_power: -100.0,
-            cumulative_noise_figure: 0.0,
-            cumulative_gain: 0.0,
+            signal_power_dbm: -30.0,
+            signal_frequency_hz: 1.0e9,
+            signal_bandwidth_hz: 1.0e6,
+            noise_power_dbm: -100.0,
+            cumulative_noise_figure_db: 0.0,
+            cumulative_gain_db: 0.0,
             cumulative_noise_temperature: None,
         };
 
@@ -365,9 +365,9 @@ mod tests {
         // clean 270.0 + 0 / 2.0 = 270.0.
         let block = super::Block {
             name: "Dummy Block".to_string(),
-            gain: 10.0,
-            noise_figure: 3.0,
-            output_p1db: None,
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
         };
 
         let output_node = input_node.cascade_block(&block);
@@ -391,12 +391,12 @@ mod tests {
 
         let input_node = super::SignalNode {
             name: "Input".to_string(),
-            signal_power: -30.0,
-            signal_frequency: 1.0e9,
-            signal_bandwidth: 1.0e6,
-            noise_power: -100.0,
-            cumulative_noise_figure: 0.0,
-            cumulative_gain: 0.0,
+            signal_power_dbm: -30.0,
+            signal_frequency_hz: 1.0e9,
+            signal_bandwidth_hz: 1.0e6,
+            noise_power_dbm: -100.0,
+            cumulative_noise_figure_db: 0.0,
+            cumulative_gain_db: 0.0,
             cumulative_noise_temperature: None,
         };
 
@@ -416,9 +416,9 @@ mod tests {
         // clean 270.0 + 0 / 2.0 = 270.0.
         let block = super::Block {
             name: "Dummy Block".to_string(),
-            gain: -6.0,
-            noise_figure: 6.0,
-            output_p1db: None,
+            gain_db: -6.0,
+            noise_figure_db: 6.0,
+            output_p1db_dbm: None,
         };
 
         let output_node = input_node.cascade_block(&block);

@@ -1,11 +1,11 @@
-input_power = -60.0
-frequency = 6.0e9
+input_power_dbm = -60.0
+frequency_hz = 6.0e9
 
 [[blocks]]
 type = "explicit"
 name = "Low Noise Amplifier"
-gain = 20.0
-noise_figure = 3.0
+gain_db = 20.0
+noise_figure_db = 3.0
 
 [[blocks]]
 type = "touchstone"
@@ -15,15 +15,15 @@ name = "Touchstone Block (ntwk3.s2p)"
 [[blocks]]
 type = "explicit"
 name = "Line Amplifier"
-gain = 10.0
-noise_figure = 5.0
+gain_db = 10.0
+noise_figure_db = 5.0
 
 
 [[blocks]]
 type = "explicit"
 name = "Line Amplifier"
-gain = 10.0
-noise_figure = 5.0
+gain_db = 10.0
+noise_figure_db = 5.0
 
 [[blocks]]
 type = "include"

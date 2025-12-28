@@ -21,10 +21,10 @@ use serde::Deserialize;
 //
 #[derive(Debug)]
 pub struct Config {
-    pub input_power: f64,
-    pub frequency: f64,
-    pub bandwidth: Option<f64>,
-    pub noise_temperature: Option<f64>,
+    pub input_power_dbm: f64,
+    pub frequency_hz: f64,
+    pub bandwidth_hz: Option<f64>,
+    pub noise_temperature_k: Option<f64>,
     pub blocks: Vec<Block>,
 }
 
@@ -38,15 +38,15 @@ struct IncludedConfig {
 enum BlockConfig {
     Explicit {
         name: String,
-        gain: f64,
-        noise_figure: f64,
-        output_p1db: Option<f64>,
+        gain_db: f64,
+        noise_figure_db: f64,
+        output_p1db_dbm: Option<f64>,
     },
     Touchstone {
         file_path: String,
         name: String,
-        noise_figure: Option<f64>,
-        output_p1db: Option<f64>,
+        noise_figure_db: Option<f64>,
+        output_p1db_dbm: Option<f64>,
     },
     Include {
         path: String,
@@ -63,10 +63,10 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     // but the TOML contains BlockConfigs
     #[derive(Deserialize)]
     struct IntermediateConfig {
-        input_power: f64,
-        frequency: f64,
-        bandwidth: Option<f64>,
-        noise_temperature: Option<f64>,
+        input_power_dbm: f64,
+        frequency_hz: f64,
+        bandwidth_hz: Option<f64>,
+        noise_temperature_k: Option<f64>,
         blocks: Vec<BlockConfig>,
     }
 
@@ -79,7 +79,7 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
 
     load_blocks_recursive(
         intermediate_config.blocks,
-        intermediate_config.frequency,
+        intermediate_config.frequency_hz,
         &mut blocks,
         base_dir,
     )?;
@@ -87,10 +87,10 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     // println!("\n----------------------------\n");
 
     Ok(Config {
-        input_power: intermediate_config.input_power,
-        frequency: intermediate_config.frequency,
-        bandwidth: intermediate_config.bandwidth,
-        noise_temperature: intermediate_config.noise_temperature,
+        input_power_dbm: intermediate_config.input_power_dbm,
+        frequency_hz: intermediate_config.frequency_hz,
+        bandwidth_hz: intermediate_config.bandwidth_hz,
+        noise_temperature_k: intermediate_config.noise_temperature_k,
         blocks,
     })
 }
@@ -105,41 +105,54 @@ fn load_blocks_recursive(
         match block_config {
             BlockConfig::Explicit {
                 name,
-                gain,
-                noise_figure,
-                output_p1db,
+                gain_db,
+                noise_figure_db,
+                output_p1db_dbm,
             } => {
                 blocks.push(Block {
                     name,
-                    gain,
-                    noise_figure,
-                    output_p1db,
+                    gain_db,
+                    noise_figure_db,
+                    output_p1db_dbm,
                 });
             }
             BlockConfig::Touchstone {
                 file_path,
                 name,
-                noise_figure,
-                output_p1db,
+                noise_figure_db,
+                output_p1db_dbm,
             } => {
                 // Touchstone files might also be relative to the config file
                 let full_path = base_dir.join(&file_path);
-                let gain = touchstone_file_path_and_frequency_to_gain(
+                let TouchstoneValid {
+                    contains_frequency,
+                    gain,
+                } = touchstone_file_path_and_frequency_to_struct(
                     full_path.to_string_lossy().to_string(),
                     frequency,
                 );
 
+                if !contains_frequency {
+                    let file_path_relative_to_config = file_path.clone();
+                    return Err(format!(
+                        "Frequency {} Hz not found in touchstone file {}",
+                        frequency, file_path_relative_to_config
+                    )
+                    .into());
+                }
+
+                let gain = gain.unwrap();
                 let noise_figure_default = -gain; // only handles passives right now
                 let output_p1db_default = 99.0; // 99 dBm
 
-                let final_noise_figure = noise_figure.unwrap_or(noise_figure_default);
-                let final_output_p1db = output_p1db.or(Some(output_p1db_default));
+                let final_noise_figure = noise_figure_db.unwrap_or(noise_figure_default);
+                let final_output_p1db = output_p1db_dbm.or(Some(output_p1db_default));
 
                 blocks.push(Block {
                     name,
-                    gain,
-                    noise_figure: final_noise_figure,
-                    output_p1db: final_output_p1db,
+                    gain_db: gain,
+                    noise_figure_db: final_noise_figure,
+                    output_p1db_dbm: final_output_p1db,
                 });
             }
             BlockConfig::Include { path } => {
@@ -156,8 +169,28 @@ fn load_blocks_recursive(
     Ok(())
 }
 
-pub fn touchstone_file_path_and_frequency_to_gain(file_path: String, frequency_in_hz: f64) -> f64 {
+pub struct TouchstoneValid {
+    contains_frequency: bool,
+    gain: Option<f64>,
+}
+
+pub fn touchstone_file_path_and_frequency_to_struct(
+    file_path: String,
+    frequency_in_hz: f64,
+) -> TouchstoneValid {
     let s2p = Network::new(file_path.clone());
+
+    // check if frequency is within the touchstone file
+
+    let frequency_vector = s2p.f.clone();
+    let contains_frequency = frequency_vector.contains(&frequency_in_hz);
+
+    if !contains_frequency {
+        return TouchstoneValid {
+            contains_frequency: false,
+            gain: None,
+        };
+    }
 
     let gain_vector = s2p.s_db(2, 1); // uses 1-based indexing
 
@@ -168,7 +201,10 @@ pub fn touchstone_file_path_and_frequency_to_gain(file_path: String, frequency_i
         .s_db
         .decibel();
 
-    gain
+    TouchstoneValid {
+        contains_frequency: true,
+        gain: Some(gain),
+    }
 }
 
 fn calculate_gainlineup(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
@@ -177,6 +213,7 @@ fn calculate_gainlineup(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
     full_cascade
 }
 
+#[derive(Debug)]
 pub struct Command {}
 
 impl Command {
@@ -224,10 +261,10 @@ impl Command {
                 // println!("\n----------------------------\n");
 
                 let input = Input {
-                    power: config.input_power,
-                    frequency: config.frequency,
-                    bandwidth: config.bandwidth.unwrap_or(100.0), // CW in real life
-                    noise_temperature: Some(config.noise_temperature.unwrap_or(290.0)), // 290K is standard
+                    power_dbm: config.input_power_dbm,
+                    frequency_hz: config.frequency_hz,
+                    bandwidth_hz: config.bandwidth_hz.unwrap_or(100.0), // CW in real life
+                    noise_temperature_k: Some(config.noise_temperature_k.unwrap_or(290.0)), // 290K is standard
                 };
                 let cascade = calculate_gainlineup(input.clone(), config.blocks.clone());
                 // println!("\n----------------------------\n");
@@ -352,37 +389,40 @@ pub fn print_cascade(cascade: Vec<SignalNode>, blocks: Vec<Block>) {
         if i == 0 {
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
-            println!("Input Level {:>8.2} dBm", node.signal_power);
+            println!("Input Level {:>8.2} dBm", node.signal_power_dbm);
         } else {
             // let block_gain = node.power - cascade[i - 1].power;
-            let block_gain = blocks[i - 1].gain;
-            let input_power = node.signal_power - block_gain;
+            let block_gain = blocks[i - 1].gain_db;
+            let input_power = node.signal_power_dbm - block_gain;
 
             // the formatting `{:>8.2}` aligns positive and negative numbers on the decimal,
             // with two digits after the decimal (hundredths place)
             println!("Input Power\t\t{:>8.2} dBm", input_power);
             println!("Block Gain:\t\t{:>8.2} dB", block_gain);
-            println!("Block NF:\t\t{:>8.2} dB", blocks[i - 1].noise_figure);
-            println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain);
+            println!("Block NF:\t\t{:>8.2} dB", blocks[i - 1].noise_figure_db);
+            println!("Cumulative Gain:\t{:>8.2} dB", node.cumulative_gain_db);
             println!(
                 "Cumulative Noise Figure:{:>8.2} dB",
-                node.cumulative_noise_figure
+                node.cumulative_noise_figure_db
             );
-            println!("Output Power\t\t{:>8.2} dBm", node.signal_power);
+            println!("Output Power\t\t{:>8.2} dBm", node.signal_power_dbm);
         }
     }
     println!();
     println!("Final Cascade Summary:");
     println!("----------------------");
     println!("Number of Blocks: {}", cascade.len() - 1);
-    println!("Pin:\t{:>8.2} dBm", cascade[0].signal_power);
+    println!("Pin:\t{:>8.2} dBm", cascade[0].signal_power_dbm);
 
-    let final_output_power = cascade.last().unwrap().signal_power;
+    let final_output_power = cascade.last().unwrap().signal_power_dbm;
     println!("Pout:\t{:>8.2} dBm", final_output_power);
-    println!("Gain:\t{:>8.2} dB", cascade.last().unwrap().cumulative_gain);
+    println!(
+        "Gain:\t{:>8.2} dB",
+        cascade.last().unwrap().cumulative_gain_db
+    );
     println!(
         "NF:\t{:>8.2} dB",
-        cascade.last().unwrap().cumulative_noise_figure
+        cascade.last().unwrap().cumulative_noise_figure_db
     );
 }
 
@@ -458,5 +498,52 @@ mod tests {
         // Version should be in format X.Y.Z
         let parts: Vec<&str> = version.split('.').collect();
         assert_eq!(parts.len(), 3, "Version should be in X.Y.Z format");
+    }
+
+    #[test]
+    fn test_touchstone_file_path_and_frequency_to_gain() {
+        let touchstone_file_path = "files/touchstone_options/ntwk3.s2p";
+        let frequency_in_hz = 6.0e9;
+        let TouchstoneValid {
+            contains_frequency,
+            gain,
+        } = touchstone_file_path_and_frequency_to_struct(
+            touchstone_file_path.to_string(),
+            frequency_in_hz,
+        );
+
+        let gain = gain.unwrap();
+        assert!(contains_frequency);
+
+        let gain_rounded_to_3_decimal_places = (gain * 1e3).round() / 1e3;
+        assert_eq!(gain_rounded_to_3_decimal_places, -3.932);
+    }
+
+    #[test]
+    fn test_touchstone_file_path_and_frequency_to_gain_not_found() {
+        let touchstone_file_path = "files/touchstone_options/ntwk3.s2p";
+        let frequency_in_hz = 11.0e9;
+        let TouchstoneValid {
+            contains_frequency,
+            gain,
+        } = touchstone_file_path_and_frequency_to_struct(
+            touchstone_file_path.to_string(),
+            frequency_in_hz,
+        );
+        assert!(!contains_frequency);
+        assert_eq!(gain, None);
+    }
+
+    #[test]
+    fn test_run_invalid_touchstone_frequency_error() {
+        let config_path = "files/touchstone_invalid_frequency/config.toml";
+        let args = vec![String::from("program_name"), config_path.to_string()];
+        let result = Command::run(&args);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Frequency 11000000000 Hz not found in touchstone file ntwk3.s2p"
+        );
+        // this ^ `ntwk3.s2p` is relative to the config file path, not the folder you run the program from
     }
 }
