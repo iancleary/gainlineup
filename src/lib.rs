@@ -1,10 +1,14 @@
 mod block;
+
+#[cfg(feature = "cli")]
 pub mod cli;
 mod constants;
 mod file_operations;
 mod input;
 mod node;
 mod open;
+
+#[cfg(feature = "plot")]
 mod plot;
 
 pub use block::Block;

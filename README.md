@@ -258,3 +258,14 @@ nf = 5.0
 > Be careful as aliases hide the unit suffixes and might cause unexpected behavior, if you are assuming a different unit suffix than the code...
 > For example, if you assume `pin` is in dBW, but the code assumes `pin` is in dBm, you will get unexpected results.  Similarly, if you assume `f` is in GHz, but the code assumes `f` is in Hz, you will get unexpected results.
 > Also note that nf is the lower case shorthand for noise figure, since NF is used for Noise Figure, while F is used for Noise Factor, see [Wikipedia](https://en.wikipedia.org/wiki/Noise_factor) for more information.
+
+## Features
+
+### Debug Output
+
+To enable debug printing, you can enable the `debug-print` feature.
+
+```toml
+[dependencies]
+gainlineup = { version = "0.16.0", features = ["debug-print"] }
+```

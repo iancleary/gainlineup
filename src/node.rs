@@ -45,6 +45,7 @@ impl SignalNode {
         let noise_spectral_density_dbm_per_hz =
             self.noise_power_dbm - self.signal_bandwidth_hz.log10() * 10.0;
 
+        #[cfg(feature = "debug-print")]
         println!(
             "Noise Spectral Density: (dBm/Hz) {}",
             noise_spectral_density_dbm_per_hz
@@ -56,13 +57,16 @@ impl SignalNode {
     pub fn signal_to_noise_ratio_db(&self) -> f64 {
         let signal_to_noise_ratio_db = self.signal_power_dbm - self.noise_power_dbm;
 
+        #[cfg(feature = "debug-print")]
         println!("Signal to Noise Ratio: (dB) {}", signal_to_noise_ratio_db);
 
         signal_to_noise_ratio_db
     }
 
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
+        #[cfg(feature = "debug-print")]
         println!("START NODE Cascade_block");
+
         let output_node_name = block.name.clone() + " Output";
 
         let block_noise_factor =
@@ -96,24 +100,30 @@ impl SignalNode {
         let cumulative_noise_figure =
             rfconversions::noise::noise_figure_from_noise_factor(cumulative_noise_factor);
 
-        let cumulative_noise_temperature = if self.cumulative_noise_temperature.is_some() {
-            let noise_temperature = self.cumulative_noise_temperature.unwrap();
-            Some(noise_temperature + block_noise_temperature / cumulative_gain_linear)
-        } else {
-            Some(270.0 + block_noise_temperature / cumulative_gain_linear)
-        };
+        let cumulative_noise_temperature =
+            if let Some(noise_temperature) = self.cumulative_noise_temperature {
+                Some(noise_temperature + block_noise_temperature / cumulative_gain_linear)
+            } else {
+                Some(270.0 + block_noise_temperature / cumulative_gain_linear)
+            };
 
         let input_noise_power_dbm = self.noise_power_dbm;
+
+        #[cfg(feature = "debug-print")]
         println!("Input Noise Power: (dBm) {}", input_noise_power_dbm);
+
         let output_noise_power_from_node_dbm = input_noise_power_dbm + stage_power_gain;
 
         let output_noise_power_from_block_dbm =
             block.output_noise_power(self.signal_bandwidth_hz, self.signal_power_dbm);
 
+        #[cfg(feature = "debug-print")]
         println!(
             "Output Noise Power from Node: (dBm) {}",
             output_noise_power_from_node_dbm
         );
+
+        #[cfg(feature = "debug-print")]
         println!(
             "Output Noise Power from Block: (dBm) {}",
             output_noise_power_from_block_dbm
@@ -128,6 +138,7 @@ impl SignalNode {
         let total_noise_power_at_output_watts =
             output_noise_power_from_node_watts + output_noise_power_from_block_watts;
 
+        #[cfg(feature = "debug-print")]
         println!(
             "Total Noise Power at Output: (W) {}",
             total_noise_power_at_output_watts
@@ -136,6 +147,7 @@ impl SignalNode {
         let total_noise_power_at_output_dbm =
             rfconversions::power::watts_to_dbm(total_noise_power_at_output_watts);
 
+        #[cfg(feature = "debug-print")]
         println!(
             "Total Noise Power at Output: (dBm) {}",
             total_noise_power_at_output_dbm
@@ -146,6 +158,7 @@ impl SignalNode {
 
         // TODO: handle frequency and bandwidth changes, i.e. mixers, filters, etc.
 
+        #[cfg(feature = "debug-print")]
         println!("END NODE Cascade_block");
 
         SignalNode {
