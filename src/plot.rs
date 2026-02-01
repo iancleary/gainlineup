@@ -145,8 +145,7 @@ pub fn generate_html_table(
 
         // input noise temperature
         if i == 0 {
-            if input.noise_temperature_k.is_some() {
-                let noise_temperature = input.noise_temperature_k.unwrap();
+            if let Some(noise_temperature) = input.noise_temperature_k {
                 writeln!(file, "<td>{:.2}</td>", noise_temperature)?;
             } else {
                 writeln!(file, "<td>-</td>")?;

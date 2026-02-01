@@ -14,19 +14,16 @@ pub struct Block {
 
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.output_p1db_dbm.is_some() {
+        if let Some(output_p1db) = self.output_p1db_dbm {
             write!(
                 f,
-                "Block {{ name: {}, gain: {}, noise_figure: {}, output_p1db: {} }}",
-                self.name,
-                self.gain_db,
-                self.noise_figure_db,
-                self.output_p1db_dbm.unwrap()
+                "Block {{ name: {}, gain: {} dB, noise_figure: {} dB, output_p1db: {} dBm }}",
+                self.name, self.gain_db, self.noise_figure_db, output_p1db
             )
         } else {
             write!(
                 f,
-                "Block {{ name: {}, gain: {}, noise_figure: {} }}",
+                "Block {{ name: {}, gain: {} dB, noise_figure: {} dB }}",
                 self.name, self.gain_db, self.noise_figure_db
             )
         }
@@ -66,17 +63,31 @@ impl Block {
 
     // input_noise_power * power_gain = output_noise_power
     pub fn output_noise_power(&self, bandwidth: f64, input_power: f64) -> f64 {
+        #[cfg(feature = "debug-print")]
         println!("START BLOCK output_noise_power");
+
         let input_noise_power = self.input_noise_power(bandwidth);
+
+        #[cfg(feature = "debug-print")]
+        #[cfg(feature = "debug-print")]
         println!(
             "Input Noise Power (block.input_noise_power): (dBm) {}",
             input_noise_power
         );
+
         let power_gain = self.power_gain(input_power);
+
+        #[cfg(feature = "debug-print")]
         println!("Power Gain: (dB) {}", power_gain);
+
         let output_noise_power = input_noise_power + power_gain;
+
+        #[cfg(feature = "debug-print")]
         println!("Output Noise Power: (dBm) {}", output_noise_power);
+
+        #[cfg(feature = "debug-print")]
         println!("END BLOCK output_noise_power");
+
         output_noise_power
     }
 
