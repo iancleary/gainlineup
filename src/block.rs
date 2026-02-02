@@ -159,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn output_power_with_compression() {
+    fn output_power_with_compression_below_threshold() {
         let input_power: f64 = -30.0;
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
@@ -190,5 +190,64 @@ mod tests {
 
         let power_gain = amplifier.power_gain(input_power);
         assert_eq!(power_gain, 6.0);
+    }
+
+    #[test]
+    fn output_noise_power_without_compression() {
+        let bandwidth: f64 = 1.0e6;
+        let amplifier = super::Block {
+            name: "Simple Amplifier".to_string(),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
+        };
+        let output_noise_power = amplifier.output_noise_power(bandwidth);
+
+        // With 1 MHz bandwidth, 3 dB NF (290K), thermal noise ~= -114 dBm
+        // After 10 dB gain: -114 + 10 = -104 dBm
+        assert!(
+            (output_noise_power - (-104.02)).abs() < 0.01,
+            "Expected output noise power around -104.02 dBm, got {}",
+            output_noise_power
+        );
+    }
+
+    #[test]
+    fn output_noise_power_with_compression_below_threshold() {
+        let bandwidth: f64 = 1.0e6;
+        let amplifier = super::Block {
+            name: "Simple Amplifier".to_string(),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(-20.0), // P1dB well above noise floor
+        };
+        let output_noise_power = amplifier.output_noise_power(bandwidth);
+
+        // Noise is -104 dBm, well below P1dB of -20 dBm, so no compression
+        assert!(
+            (output_noise_power - (-104.02)).abs() < 0.01,
+            "Noise should not compress when well below P1dB. Expected -104.02 dBm, got {}",
+            output_noise_power
+        );
+    }
+
+    #[test]
+    fn output_noise_power_with_compression_above_threshold() {
+        // To test noise compression, we need noise that actually exceeds P1dB
+        // Use very high bandwidth to increase noise power
+        let bandwidth: f64 = 1.0e9; // Very high bandwidth
+        let amplifier = super::Block {
+            name: "High Noise Amplifier".to_string(),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(-80.0), // P1dB that noise will exceed
+        };
+        let output_noise_power = amplifier.output_noise_power(bandwidth);
+
+        // With very high bandwidth, noise exceeds P1dB, should compress to P1dB + 1 dB
+        assert_eq!(
+            output_noise_power, -79.0,
+            "Noise should compress to P1dB + 1 dB when above threshold"
+        );
     }
 }

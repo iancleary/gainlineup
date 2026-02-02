@@ -458,4 +458,65 @@ mod tests {
             panic!("Output node should have a cumulative noise temperature");
         }
     }
+
+    #[test]
+    fn test_cascade_block_with_compression() {
+        // Test that signal compresses but noise doesn't when signal is high and noise is low
+        // This verifies that signal and noise compression are handled independently
+        let input_node = super::SignalNode {
+            name: "Input".to_string(),
+            signal_power_dbm: 0.0,   // High signal power
+            noise_power_dbm: -100.0, // Low noise power
+            signal_frequency_hz: 1.0e9,
+            signal_bandwidth_hz: 1.0e6,
+            cumulative_noise_figure_db: 0.0,
+            cumulative_gain_db: 0.0,
+            cumulative_noise_temperature: None,
+        };
+
+        // Block with 20 dB gain and output P1dB at 10 dBm
+        // Signal: 0 dBm + 20 dB = 20 dBm (exceeds P1dB) -> should compress to ~11 dBm
+        // Noise: -100 dBm + 20 dB = -80 dBm (well below P1dB) -> should NOT compress
+        let block = super::Block {
+            name: "Compressing Amplifier".to_string(),
+            gain_db: 20.0,
+            noise_figure_db: 6.0,
+            output_p1db_dbm: Some(10.0), // Compression point at 10 dBm output
+        };
+
+        let output_node = input_node.cascade_block(&block);
+
+        // Verify signal compressed to P1dB + 1 dB
+        assert_eq!(
+            output_node.signal_power_dbm, 11.0,
+            "Signal should compress to P1dB + 1 dB = 11 dBm (not 20 dBm)"
+        );
+
+        // Verify cumulative gain reflects signal compression (11 dB actual gain, not 20 dB)
+        assert_eq!(
+            output_node.cumulative_gain_db, 11.0,
+            "Cumulative gain should be 11 dB (compressed), not 20 dB"
+        );
+
+        // Verify noise does NOT compress - it should get the full 20 dB gain
+        // -100 dBm input + 20 dB gain + noise figure contribution ≈ -78 to -80 dBm
+        // This is well below the 10 dBm P1dB point, so no compression should occur
+        // Note: The actual noise calculation includes contributions from the block's noise figure,
+        // so we check that noise power is well below the compression point
+        assert!(
+            output_node.noise_power_dbm < -50.0,
+            "Noise power should be well below P1dB (got {} dBm), indicating no compression",
+            output_node.noise_power_dbm
+        );
+
+        // Verify that the difference between output noise and input noise is close to the
+        // block's gain_db (not the compressed signal gain of 11 dB)
+        // The noise gain should be around 20-21 dB due to the full gain plus noise figure
+        let noise_gain = output_node.noise_power_dbm - input_node.noise_power_dbm;
+        assert!(
+            noise_gain > 15.0 && noise_gain < 25.0,
+            "Noise should experience close to full 20 dB gain (got {} dB), not the compressed signal gain of 11 dB",
+            noise_gain
+        );
+    }
 }

@@ -189,3 +189,76 @@ impl Input {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cascade_block() {
+        let input = Input::new(100.0, 100.0, 0.0, None);
+        let block = Block {
+            name: "Test Block".to_string(),
+            gain_db: 10.0,
+            noise_figure_db: 10.0,
+            output_p1db_dbm: None,
+        };
+        let signal_node = input.cascade_block(&block);
+        assert_eq!(signal_node.name, "Test Block Output");
+        assert_eq!(signal_node.signal_power_dbm, 10.0);
+        assert_eq!(signal_node.signal_frequency_hz, 100.0);
+        assert_eq!(signal_node.signal_bandwidth_hz, 100.0);
+        assert_eq!(signal_node.cumulative_noise_figure_db, 10.0);
+        assert_eq!(signal_node.cumulative_gain_db, 10.0);
+        // 10 dB NF = factor 10, T = 290*(10-1) = 2610K
+        // Added temp = 2610/10 = 261K
+        // Total = 270 + 261 = 531K
+        assert_eq!(signal_node.cumulative_noise_temperature, Some(531.0));
+        // Noise power calculation: k*T*B where T=531K, B=100Hz
+        assert!(
+            (signal_node.noise_power_dbm - (-124.84)).abs() < 0.01,
+            "Expected noise power around -124.84 dBm, got {}",
+            signal_node.noise_power_dbm
+        );
+    }
+
+    #[test]
+    fn test_cascade_block_with_compression() {
+        // Test that signal compresses but noise doesn't when signal is high and noise is low
+        // Input: 0 dBm signal, thermal noise at 270K
+        let input = Input::new(1.0e9, 1.0e6, 0.0, None);
+
+        // Block: 20 dB gain, P1dB at 10 dBm output
+        // Expected: signal output = 0 + 20 = 20 dBm (exceeds P1dB), so compresses to 11 dBm
+        // Expected: noise << P1dB, so no compression on noise
+        let block = Block {
+            name: "Compressing Amplifier".to_string(),
+            gain_db: 20.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(10.0),
+        };
+
+        let signal_node = input.cascade_block(&block);
+
+        assert_eq!(signal_node.name, "Compressing Amplifier Output");
+
+        // Signal should compress to P1dB + 1 dB = 11 dBm (not 20 dBm)
+        assert_eq!(signal_node.signal_power_dbm, 11.0);
+
+        // Cumulative gain should reflect signal compression (11 dB actual gain, not 20 dB)
+        assert_eq!(signal_node.cumulative_gain_db, 11.0);
+
+        // Noise power should be well below the P1dB compression point
+        // For 1 MHz bandwidth at ~270K, thermal noise is around -114 dBm
+        // After block with 20 dB gain and 3 dB NF, noise should be around -91 dBm
+        // This is well below the 10 dBm P1dB point, so no compression
+        assert!(
+            signal_node.noise_power_dbm < -50.0,
+            "Noise power should be well below P1dB (got {} dBm), indicating no compression",
+            signal_node.noise_power_dbm
+        );
+
+        assert_eq!(signal_node.signal_frequency_hz, 1.0e9);
+        assert_eq!(signal_node.signal_bandwidth_hz, 1.0e6);
+    }
+}
