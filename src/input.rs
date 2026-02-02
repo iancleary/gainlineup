@@ -136,8 +136,7 @@ impl Input {
 
         let output_noise_power_from_input_dbm = input_noise_power + stage_power_gain_db;
 
-        let output_noise_power_from_block_dbm =
-            block.output_noise_power(self.bandwidth_hz, self.power_dbm);
+        let output_noise_power_from_block_dbm = block.output_noise_power(self.bandwidth_hz);
 
         #[cfg(feature = "debug-print")]
         println!(

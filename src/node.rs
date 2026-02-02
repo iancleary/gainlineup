@@ -112,10 +112,21 @@ impl SignalNode {
         #[cfg(feature = "debug-print")]
         println!("Input Noise Power: (dBm) {}", input_noise_power_dbm);
 
-        let output_noise_power_from_node_dbm = input_noise_power_dbm + stage_power_gain;
+        // handle compression point separately (as they are separate signals)
+        let output_noise_power_without_compression = input_noise_power_dbm + block.gain_db;
+        let output_noise_power_from_node_dbm = if let Some(output_p1db_dbm) = block.output_p1db_dbm
+        {
+            if output_noise_power_without_compression > output_p1db_dbm + 1.0 {
+                output_p1db_dbm + 1.0
+            } else {
+                output_noise_power_without_compression
+            }
+        } else {
+            output_noise_power_without_compression
+        };
 
-        let output_noise_power_from_block_dbm =
-            block.output_noise_power(self.signal_bandwidth_hz, self.signal_power_dbm);
+        // output noise power from block (independent of compression TODO: check this)
+        let output_noise_power_from_block_dbm = block.output_noise_power(self.signal_bandwidth_hz);
 
         #[cfg(feature = "debug-print")]
         println!(

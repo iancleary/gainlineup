@@ -61,34 +61,49 @@ impl Block {
         rfconversions::power::watts_to_dbm(f_minus_1 * ktb)
     }
 
-    // input_noise_power * power_gain = output_noise_power
-    pub fn output_noise_power(&self, bandwidth: f64, input_power: f64) -> f64 {
+    // input_noise_power + power_gain (for noise level not signal level) = output_noise_power
+    pub fn output_noise_power(&self, bandwidth: f64) -> f64 {
         #[cfg(feature = "debug-print")]
         println!("START BLOCK output_noise_power");
 
         let input_noise_power = self.input_noise_power(bandwidth);
 
         #[cfg(feature = "debug-print")]
-        #[cfg(feature = "debug-print")]
         println!(
             "Input Noise Power (block.input_noise_power): (dBm) {}",
             input_noise_power
         );
 
-        let power_gain = self.power_gain(input_power);
+        let output_noise_power_without_compression = input_noise_power + self.gain_db;
 
         #[cfg(feature = "debug-print")]
-        println!("Power Gain: (dB) {}", power_gain);
+        println!(
+            "Output Noise Power without compression: (dBm) {}",
+            output_noise_power_without_compression
+        );
 
-        let output_noise_power = input_noise_power + power_gain;
+        let output_noise_power_dbm = if let Some(output_p1db_dbm) = self.output_p1db_dbm {
+            if output_noise_power_without_compression > output_p1db_dbm + 1.0 {
+                output_p1db_dbm + 1.0
+            } else {
+                output_noise_power_without_compression
+            }
+        } else {
+            output_noise_power_without_compression
+        };
 
         #[cfg(feature = "debug-print")]
-        println!("Output Noise Power: (dBm) {}", output_noise_power);
+        let noise_power_gain = output_noise_power_dbm - input_noise_power;
+        #[cfg(feature = "debug-print")]
+        println!("Noise Power Gain: (dB) {}", noise_power_gain);
+
+        #[cfg(feature = "debug-print")]
+        println!("Output Noise Power: (dBm) {}", output_noise_power_dbm);
 
         #[cfg(feature = "debug-print")]
         println!("END BLOCK output_noise_power");
 
-        output_noise_power
+        output_noise_power_dbm
     }
 
     pub fn output_power(&self, input_power: f64) -> f64 {
