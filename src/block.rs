@@ -61,34 +61,49 @@ impl Block {
         rfconversions::power::watts_to_dbm(f_minus_1 * ktb)
     }
 
-    // input_noise_power * power_gain = output_noise_power
-    pub fn output_noise_power(&self, bandwidth: f64, input_power: f64) -> f64 {
+    // input_noise_power + power_gain (for noise level not signal level) = output_noise_power
+    pub fn output_noise_power(&self, bandwidth: f64) -> f64 {
         #[cfg(feature = "debug-print")]
         println!("START BLOCK output_noise_power");
 
         let input_noise_power = self.input_noise_power(bandwidth);
 
         #[cfg(feature = "debug-print")]
-        #[cfg(feature = "debug-print")]
         println!(
             "Input Noise Power (block.input_noise_power): (dBm) {}",
             input_noise_power
         );
 
-        let power_gain = self.power_gain(input_power);
+        let output_noise_power_without_compression = input_noise_power + self.gain_db;
 
         #[cfg(feature = "debug-print")]
-        println!("Power Gain: (dB) {}", power_gain);
+        println!(
+            "Output Noise Power without compression: (dBm) {}",
+            output_noise_power_without_compression
+        );
 
-        let output_noise_power = input_noise_power + power_gain;
+        let output_noise_power_dbm = if let Some(output_p1db_dbm) = self.output_p1db_dbm {
+            if output_noise_power_without_compression > output_p1db_dbm + 1.0 {
+                output_p1db_dbm + 1.0
+            } else {
+                output_noise_power_without_compression
+            }
+        } else {
+            output_noise_power_without_compression
+        };
 
         #[cfg(feature = "debug-print")]
-        println!("Output Noise Power: (dBm) {}", output_noise_power);
+        let noise_power_gain = output_noise_power_dbm - input_noise_power;
+        #[cfg(feature = "debug-print")]
+        println!("Noise Power Gain: (dB) {}", noise_power_gain);
+
+        #[cfg(feature = "debug-print")]
+        println!("Output Noise Power: (dBm) {}", output_noise_power_dbm);
 
         #[cfg(feature = "debug-print")]
         println!("END BLOCK output_noise_power");
 
-        output_noise_power
+        output_noise_power_dbm
     }
 
     pub fn output_power(&self, input_power: f64) -> f64 {
@@ -144,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn output_power_with_compression() {
+    fn output_power_with_compression_below_threshold() {
         let input_power: f64 = -30.0;
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
@@ -175,5 +190,64 @@ mod tests {
 
         let power_gain = amplifier.power_gain(input_power);
         assert_eq!(power_gain, 6.0);
+    }
+
+    #[test]
+    fn output_noise_power_without_compression() {
+        let bandwidth: f64 = 1.0e6;
+        let amplifier = super::Block {
+            name: "Simple Amplifier".to_string(),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
+        };
+        let output_noise_power = amplifier.output_noise_power(bandwidth);
+
+        // With 1 MHz bandwidth, 3 dB NF (290K), thermal noise ~= -114 dBm
+        // After 10 dB gain: -114 + 10 = -104 dBm
+        assert!(
+            (output_noise_power - (-104.02)).abs() < 0.01,
+            "Expected output noise power around -104.02 dBm, got {}",
+            output_noise_power
+        );
+    }
+
+    #[test]
+    fn output_noise_power_with_compression_below_threshold() {
+        let bandwidth: f64 = 1.0e6;
+        let amplifier = super::Block {
+            name: "Simple Amplifier".to_string(),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(-20.0), // P1dB well above noise floor
+        };
+        let output_noise_power = amplifier.output_noise_power(bandwidth);
+
+        // Noise is -104 dBm, well below P1dB of -20 dBm, so no compression
+        assert!(
+            (output_noise_power - (-104.02)).abs() < 0.01,
+            "Noise should not compress when well below P1dB. Expected -104.02 dBm, got {}",
+            output_noise_power
+        );
+    }
+
+    #[test]
+    fn output_noise_power_with_compression_above_threshold() {
+        // To test noise compression, we need noise that actually exceeds P1dB
+        // Use very high bandwidth to increase noise power
+        let bandwidth: f64 = 1.0e9; // Very high bandwidth
+        let amplifier = super::Block {
+            name: "High Noise Amplifier".to_string(),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(-80.0), // P1dB that noise will exceed
+        };
+        let output_noise_power = amplifier.output_noise_power(bandwidth);
+
+        // With very high bandwidth, noise exceeds P1dB, should compress to P1dB + 1 dB
+        assert_eq!(
+            output_noise_power, -79.0,
+            "Noise should compress to P1dB + 1 dB when above threshold"
+        );
     }
 }
