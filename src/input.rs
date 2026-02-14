@@ -188,9 +188,6 @@ impl Input {
             2.0 / 3.0 * (oip3 - noise_floor_dbm)
         });
 
-        // Isolation: first block
-        let cumulative_isolation_db = block.isolation_db;
-
         SignalNode {
             name: output_node_name,
             signal_power_dbm: output_power_dbm,
@@ -202,7 +199,6 @@ impl Input {
             noise_power_dbm: output_noise_power_at_output_dbm,
             cumulative_oip3_dbm,
             sfdr_db,
-            cumulative_isolation_db,
         }
     }
 }
@@ -220,7 +216,6 @@ mod tests {
             noise_figure_db: 10.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let signal_node = input.cascade_block(&block);
         assert_eq!(signal_node.name, "Test Block Output");
@@ -256,7 +251,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(10.0),
             output_ip3_dbm: None,
-            isolation_db: None,
         };
 
         let signal_node = input.cascade_block(&block);

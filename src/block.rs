@@ -11,7 +11,6 @@ pub struct Block {
     pub noise_figure_db: f64, // dB, nf would be ambiguous between noise factor and noise figure
     pub output_p1db_dbm: Option<f64>, // dBm, output 1 dB compression point
     pub output_ip3_dbm: Option<f64>,  // dBm, output third-order intercept point
-    pub isolation_db: Option<f64>,    // dB, out-of-band rejection/isolation
 }
 
 impl fmt::Display for Block {
@@ -27,9 +26,6 @@ impl fmt::Display for Block {
         if let Some(output_ip3) = self.output_ip3_dbm {
             write!(f, ", output_ip3: {} dBm", output_ip3)?;
         }
-        if let Some(isolation) = self.isolation_db {
-            write!(f, ", isolation: {} dB", isolation)?;
-        }
         write!(f, " }}")
     }
 }
@@ -42,7 +38,6 @@ impl Default for Block {
             noise_figure_db: 0.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         }
     }
 }
@@ -159,7 +154,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let output_power = amplifier.output_power(input_power);
 
@@ -175,7 +169,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(-20.0),
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let output_power = amplifier.output_power(input_power);
 
@@ -194,7 +187,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(-20.0),
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let output_power = amplifier.output_power(input_power);
 
@@ -213,7 +205,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let output_noise_power = amplifier.output_noise_power(bandwidth);
 
@@ -235,7 +226,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(-20.0), // P1dB well above noise floor
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let output_noise_power = amplifier.output_noise_power(bandwidth);
 
@@ -258,7 +248,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(-80.0), // P1dB that noise will exceed
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let output_noise_power = amplifier.output_noise_power(bandwidth);
 

@@ -15,7 +15,6 @@ pub struct SignalNode {
     pub cumulative_noise_temperature: Option<f64>,
     pub cumulative_oip3_dbm: Option<f64>,     // dBm, cascaded output IP3
     pub sfdr_db: Option<f64>,                  // dB, spur-free dynamic range
-    pub cumulative_isolation_db: Option<f64>,  // dB, cumulative out-of-band isolation
 }
 
 impl fmt::Display for SignalNode {
@@ -41,7 +40,6 @@ impl Default for SignalNode {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         }
     }
 }
@@ -200,14 +198,6 @@ impl SignalNode {
             2.0 / 3.0 * (oip3 - noise_floor_dbm)
         });
 
-        // Cumulative isolation
-        let cumulative_isolation_db = match (self.cumulative_isolation_db, block.isolation_db) {
-            (Some(prev), Some(block_iso)) => Some(prev + block_iso),
-            (Some(prev), None) => Some(prev),
-            (None, Some(block_iso)) => Some(block_iso),
-            (None, None) => None,
-        };
-
         SignalNode {
             name: output_node_name,
             signal_frequency_hz: output_frequency_hz,
@@ -219,7 +209,6 @@ impl SignalNode {
             cumulative_noise_temperature,
             cumulative_oip3_dbm,
             sfdr_db,
-            cumulative_isolation_db,
         }
     }
 
@@ -249,7 +238,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
@@ -257,7 +245,6 @@ mod tests {
             noise_figure_db: 5.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let output_node = input_node.cascade_block(&amplifier);
 
@@ -287,7 +274,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -295,7 +281,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
 
         let output_node = input_node.cascade_block(&amplifier);
@@ -326,7 +311,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -334,7 +318,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
@@ -342,7 +325,6 @@ mod tests {
             noise_figure_db: 6.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
         let intermediate_node = input_node.cascade_block(&amplifier);
 
@@ -376,7 +358,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
 
         // Case 1: Standard ~290K noise temperature (NF=3dB implies F=2, T=290K if T0=290K? No, T = T0 * (F-1). If F=2, T=290. Total Noise Temp = T_source + T_added. SOurce is usually 290K.
@@ -412,7 +393,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
         // SNR = -100 - (-174) = 74 dB
         let snr_db = node.signal_to_noise_ratio_db();
@@ -435,7 +415,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
 
         // 1. Verify input node has None for cumulative_noise_temperature
@@ -458,7 +437,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
 
         let output_node = input_node.cascade_block(&block);
@@ -491,7 +469,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
 
         // 1. Verify input node has None for cumulative_noise_temperature
@@ -514,7 +491,6 @@ mod tests {
             noise_figure_db: 6.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
 
         let output_node = input_node.cascade_block(&block);
@@ -546,7 +522,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
 
         // Block with 20 dB gain and output P1dB at 10 dBm
@@ -558,7 +533,6 @@ mod tests {
             noise_figure_db: 6.0,
             output_p1db_dbm: Some(10.0), // Compression point at 10 dBm output
             output_ip3_dbm: None,
-            isolation_db: None,
         };
 
         let output_node = input_node.cascade_block(&block);
@@ -611,7 +585,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
 
         let lna = super::Block {
@@ -620,7 +593,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
             output_ip3_dbm: Some(20.0),
-            isolation_db: None,
         };
 
         let attenuator = super::Block {
@@ -629,7 +601,6 @@ mod tests {
             noise_figure_db: 6.0,
             output_p1db_dbm: None,
             output_ip3_dbm: None,
-            isolation_db: None,
         };
 
         let after_lna = input_node.cascade_block(&lna);
@@ -654,7 +625,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
 
         let lna = super::Block {
@@ -663,7 +633,6 @@ mod tests {
             noise_figure_db: 2.0,
             output_p1db_dbm: None,
             output_ip3_dbm: Some(30.0),
-            isolation_db: None,
         };
 
         let mixer = super::Block {
@@ -672,7 +641,6 @@ mod tests {
             noise_figure_db: 8.0,
             output_p1db_dbm: None,
             output_ip3_dbm: Some(15.0),
-            isolation_db: None,
         };
 
         let if_amp = super::Block {
@@ -681,7 +649,6 @@ mod tests {
             noise_figure_db: 4.0,
             output_p1db_dbm: None,
             output_ip3_dbm: Some(25.0),
-            isolation_db: None,
         };
 
         let n1 = input_node.cascade_block(&lna);
@@ -718,7 +685,6 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
-            cumulative_isolation_db: None,
         };
 
         let lna = super::Block {
@@ -727,7 +693,6 @@ mod tests {
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
             output_ip3_dbm: Some(30.0),
-            isolation_db: None,
         };
 
         let node = input_node.cascade_block(&lna);
@@ -739,73 +704,4 @@ mod tests {
         assert!((sfdr - expected_sfdr).abs() < 0.01, "Expected SFDR ~{}, got {}", expected_sfdr, sfdr);
     }
 
-    #[test]
-    fn test_cumulative_isolation() {
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
-            signal_power_dbm: -30.0,
-            signal_frequency_hz: 1.0e9,
-            signal_bandwidth_hz: 1.0e6,
-            noise_power_dbm: -100.0,
-            cumulative_noise_figure_db: 0.0,
-            cumulative_gain_db: 0.0,
-            cumulative_noise_temperature: None,
-            cumulative_oip3_dbm: None,
-            sfdr_db: None,
-            cumulative_isolation_db: None,
-        };
-
-        let filter = super::Block {
-            name: "Bandpass Filter".to_string(),
-            gain_db: -2.0,
-            noise_figure_db: 2.0,
-            output_p1db_dbm: None,
-            output_ip3_dbm: None,
-            isolation_db: Some(40.0),
-        };
-
-        let amplifier = super::Block {
-            name: "Amplifier".to_string(),
-            gain_db: 20.0,
-            noise_figure_db: 3.0,
-            output_p1db_dbm: None,
-            output_ip3_dbm: None,
-            isolation_db: None,
-        };
-
-        let n1 = input_node.cascade_block(&filter);
-        assert_eq!(n1.cumulative_isolation_db, Some(40.0));
-
-        let n2 = n1.cascade_block(&amplifier);
-        assert_eq!(n2.cumulative_isolation_db, Some(40.0));
-    }
-
-    #[test]
-    fn test_no_isolation_blocks() {
-        let input_node = super::SignalNode {
-            name: "Input".to_string(),
-            signal_power_dbm: -30.0,
-            signal_frequency_hz: 1.0e9,
-            signal_bandwidth_hz: 1.0e6,
-            noise_power_dbm: -100.0,
-            cumulative_noise_figure_db: 0.0,
-            cumulative_gain_db: 0.0,
-            cumulative_noise_temperature: None,
-            cumulative_oip3_dbm: None,
-            sfdr_db: None,
-            cumulative_isolation_db: None,
-        };
-
-        let amplifier = super::Block {
-            name: "Amplifier".to_string(),
-            gain_db: 20.0,
-            noise_figure_db: 3.0,
-            output_p1db_dbm: None,
-            output_ip3_dbm: None,
-            isolation_db: None,
-        };
-
-        let node = input_node.cascade_block(&amplifier);
-        assert_eq!(node.cumulative_isolation_db, None);
-    }
 }
