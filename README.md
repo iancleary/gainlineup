@@ -36,6 +36,7 @@ fn run() {
         gain_db: -6.0,
         noise_figure_db: 6.0,
         output_p1db_dbm: None,
+        output_ip3_dbm: None,
     };
 
     let line_amp: Block = Block {
@@ -43,6 +44,7 @@ fn run() {
         gain_db: 22.0,
         noise_figure_db: 6.0,
         output_p1db_dbm: None,
+        output_ip3_dbm: Some(35.0),
     };
 
     let cable_run_to_spectrum_analyzer: Block = Block {
@@ -50,6 +52,7 @@ fn run() {
         gain_db: -6.0,
         noise_figure_db: 6.0,
         output_p1db_dbm: None,
+        output_ip3_dbm: None,
     };
 
     let blocks = vec![
@@ -223,6 +226,7 @@ You can use the following field names with or without unit suffixes. The suffixe
 | `gain_db` | `gain` |
 | `noise_figure_db` | `noise_figure`, `nf` ([Noise Figure is NF, Noise Factor is F](https://en.wikipedia.org/wiki/Noise_figure)) |
 | `output_p1db_dbm` | `output_p1db`, `op1db` |
+| `output_ip3_dbm` | `output_ip3`, `oip3` |
 | `input_power_dbm` | `input_power`, `pin` |
 | `frequency_hz` | `frequency`, `f` |
 | `bandwidth_hz` | `bandwidth`, `bw` |
@@ -259,6 +263,20 @@ nf = 5.0
 > For example, if you assume `pin` is in dBW, but the code assumes `pin` is in dBm, you will get unexpected results.  Similarly, if you assume `f` is in GHz, but the code assumes `f` is in Hz, you will get unexpected results.
 > Also note that nf is the lower case shorthand for noise figure, since NF is used for Noise Figure, while F is used for Noise Factor, see [Wikipedia](https://en.wikipedia.org/wiki/Noise_factor) for more information.
 
+## Cascade Analysis
+
+The cascade calculates the following cumulative parameters at each node:
+
+| Parameter | Description |
+| :--- | :--- |
+| Signal Power (dBm) | Cumulative signal level through the chain |
+| Gain (dB) | Cumulative gain |
+| Noise Figure (dB) | Cascaded noise figure (Friis equation) |
+| OIP3 (dBm) | Cascaded output third-order intercept point |
+| SFDR (dB) | Spur-free dynamic range: 2/3 × (OIP3 − noise floor) |
+
+OIP3 and SFDR are computed when blocks have `output_ip3_dbm` set. SFDR requires bandwidth > 0 to calculate the noise floor.
+
 ## Features
 
 ### Debug Output
@@ -267,5 +285,5 @@ To enable debug printing, you can enable the `debug-print` feature.
 
 ```toml
 [dependencies]
-gainlineup = { version = "0.16.0", features = ["debug-print"] }
+gainlineup = { version = "0.18.0", features = ["debug-print"] }
 ```
