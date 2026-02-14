@@ -27,6 +27,8 @@ fn run() {
         gain_db: -6.0,
         noise_figure_db: 6.0,
         output_p1db_dbm: None,
+        output_ip3_dbm: None,
+        isolation_db: None,
     };
 
     let line_amp: Block = Block {
@@ -34,6 +36,8 @@ fn run() {
         gain_db: 22.0,
         noise_figure_db: 6.0,
         output_p1db_dbm: None,
+        output_ip3_dbm: None,
+        isolation_db: None,
     };
 
     let cable_run_to_spectrum_analyzer: Block = Block {
@@ -41,6 +45,8 @@ fn run() {
         gain_db: -6.0,
         noise_figure_db: 6.0,
         output_p1db_dbm: None,
+        output_ip3_dbm: None,
+        isolation_db: None,
     };
 
     let blocks = vec![

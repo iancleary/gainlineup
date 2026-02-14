@@ -10,23 +10,27 @@ pub struct Block {
     pub gain_db: f64,                 // dB
     pub noise_figure_db: f64, // dB, nf would be ambiguous between noise factor and noise figure
     pub output_p1db_dbm: Option<f64>, // dBm, output 1 dB compression point
+    pub output_ip3_dbm: Option<f64>,  // dBm, output third-order intercept point
+    pub isolation_db: Option<f64>,    // dB, out-of-band rejection/isolation
 }
 
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Block {{ name: {}, gain: {} dB, noise_figure: {} dB",
+            self.name, self.gain_db, self.noise_figure_db
+        )?;
         if let Some(output_p1db) = self.output_p1db_dbm {
-            write!(
-                f,
-                "Block {{ name: {}, gain: {} dB, noise_figure: {} dB, output_p1db: {} dBm }}",
-                self.name, self.gain_db, self.noise_figure_db, output_p1db
-            )
-        } else {
-            write!(
-                f,
-                "Block {{ name: {}, gain: {} dB, noise_figure: {} dB }}",
-                self.name, self.gain_db, self.noise_figure_db
-            )
+            write!(f, ", output_p1db: {} dBm", output_p1db)?;
         }
+        if let Some(output_ip3) = self.output_ip3_dbm {
+            write!(f, ", output_ip3: {} dBm", output_ip3)?;
+        }
+        if let Some(isolation) = self.isolation_db {
+            write!(f, ", isolation: {} dB", isolation)?;
+        }
+        write!(f, " }}")
     }
 }
 
@@ -37,6 +41,8 @@ impl Default for Block {
             gain_db: 0.0,
             noise_figure_db: 0.0,
             output_p1db_dbm: None,
+            output_ip3_dbm: None,
+            isolation_db: None,
         }
     }
 }
@@ -152,6 +158,8 @@ mod tests {
             gain_db: 10.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let output_power = amplifier.output_power(input_power);
 
@@ -166,6 +174,8 @@ mod tests {
             gain_db: 10.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(-20.0),
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let output_power = amplifier.output_power(input_power);
 
@@ -183,6 +193,8 @@ mod tests {
             gain_db: 10.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(-20.0),
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let output_power = amplifier.output_power(input_power);
 
@@ -200,6 +212,8 @@ mod tests {
             gain_db: 10.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let output_noise_power = amplifier.output_noise_power(bandwidth);
 
@@ -220,6 +234,8 @@ mod tests {
             gain_db: 10.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(-20.0), // P1dB well above noise floor
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let output_noise_power = amplifier.output_noise_power(bandwidth);
 
@@ -241,6 +257,8 @@ mod tests {
             gain_db: 10.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(-80.0), // P1dB that noise will exceed
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let output_noise_power = amplifier.output_noise_power(bandwidth);
 

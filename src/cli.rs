@@ -44,6 +44,10 @@ enum BlockConfig {
         noise_figure_db: f64,
         #[serde(alias = "output_p1db", alias = "op1db")]
         output_p1db_dbm: Option<f64>,
+        #[serde(default, alias = "output_ip3", alias = "oip3")]
+        output_ip3_dbm: Option<f64>,
+        #[serde(default, alias = "isolation")]
+        isolation_db: Option<f64>,
     },
     Touchstone {
         file_path: String,
@@ -117,12 +121,16 @@ fn load_blocks_recursive(
                 gain_db,
                 noise_figure_db,
                 output_p1db_dbm,
+                output_ip3_dbm,
+                isolation_db,
             } => {
                 blocks.push(Block {
                     name,
                     gain_db,
                     noise_figure_db,
                     output_p1db_dbm,
+                    output_ip3_dbm,
+                    isolation_db,
                 });
             }
             BlockConfig::Touchstone {
@@ -162,6 +170,8 @@ fn load_blocks_recursive(
                     gain_db: gain,
                     noise_figure_db: final_noise_figure,
                     output_p1db_dbm: final_output_p1db,
+                    output_ip3_dbm: None,
+                    isolation_db: None,
                 });
             }
             BlockConfig::Include { path } => {
@@ -597,6 +607,7 @@ mod tests {
             gain_db,
             noise_figure_db,
             output_p1db_dbm,
+            ..
         } = &config.blocks[0]
         {
             assert_eq!(name, "LNA");

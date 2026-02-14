@@ -63,12 +63,16 @@ mod tests {
             gain_db: 30.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
             gain_db: -6.0,
             noise_figure_db: 6.0,
             output_p1db_dbm: None,
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let blocks = vec![amplifier, attenuator];
         let output_node = super::cascade_vector_return_output(input, blocks);
@@ -97,12 +101,16 @@ mod tests {
             gain_db: 30.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: None,
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
             gain_db: -6.0,
             noise_figure_db: 6.0,
             output_p1db_dbm: None,
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let blocks = vec![amplifier, attenuator];
         let cascade_vector = super::cascade_vector_return_vector(input, blocks);
@@ -132,18 +140,24 @@ mod tests {
             gain_db: 30.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(5.0),
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let attenuator = super::Block {
             name: "Attenuator".to_string(),
             gain_db: -6.0,
             noise_figure_db: 6.0,
             output_p1db_dbm: None,
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let high_power_amplifier = super::Block {
             name: "High Power Amplifier".to_string(),
             gain_db: 30.0,
             noise_figure_db: 3.0,
             output_p1db_dbm: Some(20.0),
+            output_ip3_dbm: None,
+            isolation_db: None,
         };
         let blocks = vec![low_noise_amplifier, attenuator, high_power_amplifier];
         let cascade_vector = super::cascade_vector_return_vector(input, blocks);
