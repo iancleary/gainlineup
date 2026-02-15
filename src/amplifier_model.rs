@@ -223,9 +223,13 @@ mod tests {
     fn with_am_pm_returns_phase_shift() {
         let block = test_block();
         let model = AmplifierModel::with_am_pm(&block, 10.0); // 10 °/dB
-        // At input P1dB (-10 dBm), delta = 0 → phase = 0
+                                                              // At input P1dB (-10 dBm), delta = 0 → phase = 0
         let phase = model.phase_shift_at(-10.0).unwrap();
-        assert!((phase - 0.0).abs() < 1e-10, "Phase at P1dB should be 0, got {}", phase);
+        assert!(
+            (phase - 0.0).abs() < 1e-10,
+            "Phase at P1dB should be 0, got {}",
+            phase
+        );
         // At 5 dB above input P1dB (-5 dBm): phase = 10 * 5 = 50°
         let phase = model.phase_shift_at(-5.0).unwrap();
         assert!((phase - 50.0).abs() < 1e-10, "Expected 50°, got {}", phase);
@@ -237,7 +241,10 @@ mod tests {
         let model = AmplifierModel::with_am_pm(&block, 10.0);
         // At -50 dBm, well below input P1dB of -10 dBm
         let phase = model.phase_shift_at(-50.0).unwrap();
-        assert!((phase - 0.0).abs() < 1e-10, "Phase at deep backoff should be 0");
+        assert!(
+            (phase - 0.0).abs() < 1e-10,
+            "Phase at deep backoff should be 0"
+        );
     }
 
     #[test]
@@ -267,7 +274,7 @@ mod tests {
     fn backoff_for_target_phase_reasonable() {
         let block = test_block();
         let model = AmplifierModel::with_am_pm(&block, 10.0); // 10 °/dB
-        // For max 5°: allowed_above = 5/10 = 0.5 dB → backoff = -0.5 (can be above P1dB)
+                                                              // For max 5°: allowed_above = 5/10 = 0.5 dB → backoff = -0.5 (can be above P1dB)
         let backoff = model.backoff_for_target_phase(5.0).unwrap();
         assert!(
             (backoff - (-0.5)).abs() < 1e-10,

@@ -191,7 +191,7 @@ mod tests {
         // Total gain = 20 - 6 = 14 dB
         assert!((sweep[0].1 - (-26.0)).abs() < 0.01); // -40 + 14 = -26
         assert!((sweep[1].1 - (-16.0)).abs() < 0.01); // -30 + 14 = -16
-        assert!((sweep[2].1 - (-6.0)).abs() < 0.01);  // -20 + 14 = -6
+        assert!((sweep[2].1 - (-6.0)).abs() < 0.01); // -20 + 14 = -6
     }
 
     #[test]
@@ -222,15 +222,13 @@ mod tests {
 
     #[test]
     fn cascade_gain_compression() {
-        let blocks = vec![
-            super::Block {
-                name: "Amp".to_string(),
-                gain_db: 20.0,
-                noise_figure_db: 3.0,
-                output_p1db_dbm: Some(10.0),
-                output_ip3_dbm: None,
-            },
-        ];
+        let blocks = vec![super::Block {
+            name: "Amp".to_string(),
+            gain_db: 20.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: Some(10.0),
+            output_ip3_dbm: None,
+        }];
         let sweep = super::cascade_gain_compression_sweep(&blocks, -40.0, 0.0, 10.0);
         // At -40: linear, gain = 20
         assert!((sweep[0].1 - 20.0).abs() < 0.01);

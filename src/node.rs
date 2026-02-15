@@ -42,9 +42,9 @@ pub struct SignalNode {
     pub cumulative_noise_figure_db: f64, // dB, linear
     pub cumulative_gain_db: f64,  // cumulative, dB (set to 0 at start)
     pub cumulative_noise_temperature: Option<f64>,
-    pub cumulative_oip3_dbm: Option<f64>,     // dBm, cascaded output IP3
-    pub sfdr_db: Option<f64>,                  // dB, spur-free dynamic range
-    pub output_p1db_dbm: Option<f64>,          // dBm, output P1dB at this node
+    pub cumulative_oip3_dbm: Option<f64>, // dBm, cascaded output IP3
+    pub sfdr_db: Option<f64>,             // dB, spur-free dynamic range
+    pub output_p1db_dbm: Option<f64>,     // dBm, output P1dB at this node
 }
 
 impl fmt::Display for SignalNode {
@@ -223,9 +223,8 @@ impl SignalNode {
         // SFDR calculation
         let new_cumulative_gain_db = self.cumulative_gain_db + stage_power_gain;
         let sfdr_db = cumulative_oip3_dbm.map(|oip3| {
-            let noise_floor_dbm = -174.0
-                + 10.0 * output_bandwidth_hz.log10()
-                + cumulative_noise_figure;
+            let noise_floor_dbm =
+                -174.0 + 10.0 * output_bandwidth_hz.log10() + cumulative_noise_figure;
             2.0 / 3.0 * (oip3 - noise_floor_dbm)
         });
 
@@ -729,7 +728,11 @@ mod tests {
         // 1/OIP3_new = 0.158489/1.0 + 1/0.031623 = 0.158489 + 31.623 = 31.7815
         // OIP3_new = 0.031465 W = 10*log10(0.031465/0.001) = 14.978 dBm
         let oip3_2 = n2.cumulative_oip3_dbm.unwrap();
-        assert!((oip3_2 - 14.978).abs() < 0.1, "Expected ~14.978, got {}", oip3_2);
+        assert!(
+            (oip3_2 - 14.978).abs() < 0.1,
+            "Expected ~14.978, got {}",
+            oip3_2
+        );
 
         let n3 = n2.cascade_block(&if_amp);
         // Cascaded again with IF amp
@@ -769,7 +772,12 @@ mod tests {
         // SFDR = 2/3 * (OIP3 - noise_floor)
         let expected_noise_floor = -174.0 + 60.0 + node.cumulative_noise_figure_db;
         let expected_sfdr = 2.0 / 3.0 * (30.0 - expected_noise_floor);
-        assert!((sfdr - expected_sfdr).abs() < 0.01, "Expected SFDR ~{}, got {}", expected_sfdr, sfdr);
+        assert!(
+            (sfdr - expected_sfdr).abs() < 0.01,
+            "Expected SFDR ~{}, got {}",
+            expected_sfdr,
+            sfdr
+        );
     }
 
     // ----- Phase 4: Dynamic Range at Node Level -----
@@ -863,5 +871,4 @@ mod tests {
         // 15 - 25 = -10
         assert!((summary.max_input_dbm - (-10.0)).abs() < 1e-10);
     }
-
 }

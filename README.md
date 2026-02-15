@@ -15,7 +15,7 @@ RF signal chain (gain lineup) analysis for receiver and transmitter design.
 Every chain starts with an input signal: power level, frequency, bandwidth, and optionally a noise temperature (e.g., antenna sky temperature).
 
 ```rust
-use gainlineup::Input;
+use gainlineup::{Input};
 
 let input = Input {
     power_dbm: -80.0,          // received signal level
@@ -25,12 +25,14 @@ let input = Input {
 };
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_01_input_signal.rs)
+
 ### 2. Define Your Blocks
 
 Each block in the chain has a name, gain, noise figure, and optionally compression (P1dB) and linearity (IP3) specs.
 
 ```rust
-use gainlineup::Block;
+use gainlineup::{Block};
 
 let lna = Block {
     name: "Low Noise Amplifier".to_string(),
@@ -57,12 +59,45 @@ let if_amp = Block {
 };
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_02_blocks.rs)
+
 ### 3. Run the Cascade
 
 Pass the input and blocks through the cascade to get signal nodes at each stage.
 
 ```rust
-use gainlineup::cascade_vector_return_vector;
+use gainlineup::{Block, Input, cascade_vector_return_vector};
+
+let input = Input {
+    power_dbm: -80.0,
+    frequency_hz: 6.0e9,
+    bandwidth_hz: 1.0e6,
+    noise_temperature_k: Some(50.0),
+};
+
+let lna = Block {
+    name: "Low Noise Amplifier".to_string(),
+    gain_db: 20.0,
+    noise_figure_db: 1.5,
+    output_p1db_dbm: Some(5.0),
+    output_ip3_dbm: Some(20.0),
+};
+
+let mixer = Block {
+    name: "Mixer".to_string(),
+    gain_db: -8.0,
+    noise_figure_db: 8.0,
+    output_p1db_dbm: Some(10.0),
+    output_ip3_dbm: Some(15.0),
+};
+
+let if_amp = Block {
+    name: "IF Amplifier".to_string(),
+    gain_db: 25.0,
+    noise_figure_db: 4.0,
+    output_p1db_dbm: Some(15.0),
+    output_ip3_dbm: Some(25.0),
+};
 
 let blocks = vec![lna.clone(), mixer.clone(), if_amp.clone()];
 let nodes = cascade_vector_return_vector(input, blocks);
@@ -80,6 +115,8 @@ println!("\nCascade: Gain={:.1} dB, NF={:.2} dB, SNR={:.1} dB",
     output.cumulative_noise_figure_db,
     output.signal_to_noise_ratio_db());
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_03_cascade.rs)
 
 ### 4. What Gets Cascaded
 
@@ -102,6 +139,8 @@ At each node in the chain, the cascade computes:
 When a block has `output_p1db_dbm` set, the output power clamps at P1dB + 1 dB. Signal and noise are compressed independently — noise only compresses if it actually exceeds P1dB (rare, but handled correctly).
 
 ```rust
+use gainlineup::{Block};
+
 let pa = Block {
     name: "Power Amplifier".to_string(),
     gain_db: 30.0,
@@ -119,6 +158,8 @@ assert_eq!(pa.output_power(0.0), 21.0);    // 0 + 30 = 30, clamps to 21
 assert_eq!(pa.power_gain(0.0), 21.0);      // reduced gain
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_04_compression.rs)
+
 ---
 
 ## Dynamic Range
@@ -126,6 +167,8 @@ assert_eq!(pa.power_gain(0.0), 21.0);      // reduced gain
 Dynamic range tells you the usable power range of a block or chain: from the noise floor up to the compression point.
 
 ```rust
+use gainlineup::{Block};
+
 let lna = Block {
     name: "LNA".to_string(),
     gain_db: 20.0,
@@ -143,6 +186,8 @@ let dr_in = lna.input_dynamic_range_db(1e6).unwrap();
 println!("Input dynamic range: {:.1} dB", dr_in);
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_05_dynamic_range.rs)
+
 Returns `None` when P1dB is not set (linear block, infinite dynamic range).
 
 ---
@@ -154,6 +199,16 @@ Sweep input power to see how a block or chain behaves from linear through compre
 ### Single Block
 
 ```rust
+use gainlineup::{Block};
+
+let lna = Block {
+    name: "LNA".to_string(),
+    gain_db: 20.0,
+    noise_figure_db: 3.0,
+    output_p1db_dbm: Some(10.0),
+    output_ip3_dbm: None,
+};
+
 // Pin vs Pout
 let curve = lna.am_am_sweep(-50.0, 0.0, 1.0);
 for (pin, pout) in &curve {
@@ -167,10 +222,36 @@ for (pin, gain) in &gc {
 }
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_06_am_am_single_block.rs)
+
 ### Full Cascade
 
 ```rust
-use gainlineup::{cascade_am_am_sweep, cascade_gain_compression_sweep, Block};
+use gainlineup::{Block, cascade_am_am_sweep, cascade_gain_compression_sweep};
+
+let lna = Block {
+    name: "Low Noise Amplifier".to_string(),
+    gain_db: 20.0,
+    noise_figure_db: 1.5,
+    output_p1db_dbm: Some(5.0),
+    output_ip3_dbm: Some(20.0),
+};
+
+let mixer = Block {
+    name: "Mixer".to_string(),
+    gain_db: -8.0,
+    noise_figure_db: 8.0,
+    output_p1db_dbm: Some(10.0),
+    output_ip3_dbm: Some(15.0),
+};
+
+let if_amp = Block {
+    name: "IF Amplifier".to_string(),
+    gain_db: 25.0,
+    noise_figure_db: 4.0,
+    output_p1db_dbm: Some(15.0),
+    output_ip3_dbm: Some(25.0),
+};
 
 let blocks = vec![lna.clone(), mixer.clone(), if_amp.clone()];
 
@@ -187,6 +268,8 @@ for (pin, gain) in &gc {
 }
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_07_am_am_cascade.rs)
+
 ---
 
 ## IMD3 (Intermodulation from IP3)
@@ -194,6 +277,8 @@ for (pin, gain) in &gc {
 When a block has `output_ip3_dbm` set, you can compute third-order intermodulation products — the spurious signals that appear in a two-tone test.
 
 ```rust
+use gainlineup::{Block};
+
 let amp = Block {
     name: "Driver Amp".to_string(),
     gain_db: 20.0,
@@ -217,6 +302,8 @@ for pt in &sweep {
         pt.im3_output_dbm, pt.rejection_db);
 }
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_08_imd3.rs)
 
 **Key relationships:**
 - `IM3_out = 3 × Pout - 2 × OIP3` (all dBm)
@@ -257,6 +344,8 @@ if let Some(summary) = node.dynamic_range_summary() {
     println!("Max input: {:.1} dBm", summary.max_input_dbm);
 }
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_09_node_dynamic_range.rs)
 
 Returns `None` when the node has no P1dB (e.g., a passive stage without a compression spec).
 
@@ -311,6 +400,8 @@ if let Some(evm) = model.evm_from_am_pm(-5.0) {
     println!("EVM from AM-PM: {:.4} ({:.2}%)", evm, evm * 100.0);
 }
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_10_amplifier_model.rs)
 
 ---
 
