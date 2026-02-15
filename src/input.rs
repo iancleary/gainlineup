@@ -199,6 +199,7 @@ impl Input {
             noise_power_dbm: output_noise_power_at_output_dbm,
             cumulative_oip3_dbm,
             sfdr_db,
+            output_p1db_dbm: block.output_p1db_dbm,
         }
     }
 }
