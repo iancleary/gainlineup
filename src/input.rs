@@ -182,9 +182,8 @@ impl Input {
 
         // SFDR calculation
         let sfdr_db = cumulative_oip3_dbm.map(|oip3| {
-            let noise_floor_dbm = -174.0
-                + 10.0 * self.bandwidth_hz.log10()
-                + cumulative_noise_figure;
+            let noise_floor_dbm =
+                -174.0 + 10.0 * self.bandwidth_hz.log10() + cumulative_noise_figure;
             2.0 / 3.0 * (oip3 - noise_floor_dbm)
         });
 

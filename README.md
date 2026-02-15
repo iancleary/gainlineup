@@ -25,6 +25,8 @@ let input = Input {
 };
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_01_input_signal.rs)
+
 ### 2. Define Your Blocks
 
 Each block in the chain has a name, gain, noise figure, and optionally compression (P1dB) and linearity (IP3) specs.
@@ -56,6 +58,8 @@ let if_amp = Block {
     output_ip3_dbm: Some(25.0),
 };
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_02_blocks.rs)
 
 ### 3. Run the Cascade
 
@@ -112,6 +116,8 @@ println!("\nCascade: Gain={:.1} dB, NF={:.2} dB, SNR={:.1} dB",
     output.signal_to_noise_ratio_db());
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_03_cascade.rs)
+
 ### 4. What Gets Cascaded
 
 At each node in the chain, the cascade computes:
@@ -152,6 +158,8 @@ assert_eq!(pa.output_power(0.0), 21.0);    // 0 + 30 = 30, clamps to 21
 assert_eq!(pa.power_gain(0.0), 21.0);      // reduced gain
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_04_compression.rs)
+
 ---
 
 ## Dynamic Range
@@ -177,6 +185,8 @@ println!("Output dynamic range: {:.1} dB", dr);
 let dr_in = lna.input_dynamic_range_db(1e6).unwrap();
 println!("Input dynamic range: {:.1} dB", dr_in);
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_05_dynamic_range.rs)
 
 Returns `None` when P1dB is not set (linear block, infinite dynamic range).
 
@@ -211,6 +221,8 @@ for (pin, gain) in &gc {
     println!("Pin={:.0} dBm → Gain={:.1} dB", pin, gain);
 }
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_06_am_am_single_block.rs)
 
 ### Full Cascade
 
@@ -256,6 +268,8 @@ for (pin, gain) in &gc {
 }
 ```
 
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_07_am_am_cascade.rs)
+
 ---
 
 ## IMD3 (Intermodulation from IP3)
@@ -288,6 +302,8 @@ for pt in &sweep {
         pt.im3_output_dbm, pt.rejection_db);
 }
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_08_imd3.rs)
 
 **Key relationships:**
 - `IM3_out = 3 × Pout - 2 × OIP3` (all dBm)
@@ -328,6 +344,8 @@ if let Some(summary) = node.dynamic_range_summary() {
     println!("Max input: {:.1} dBm", summary.max_input_dbm);
 }
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_09_node_dynamic_range.rs)
 
 Returns `None` when the node has no P1dB (e.g., a passive stage without a compression spec).
 
@@ -382,6 +400,8 @@ if let Some(evm) = model.evm_from_am_pm(-5.0) {
     println!("EVM from AM-PM: {:.4} ({:.2}%)", evm, evm * 100.0);
 }
 ```
+
+> [Full example →](https://github.com/iancleary/gainlineup/blob/main/tests/readme_10_amplifier_model.rs)
 
 ---
 

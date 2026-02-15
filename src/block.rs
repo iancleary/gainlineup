@@ -10,7 +10,7 @@ pub struct Block {
     pub gain_db: f64,                 // dB
     pub noise_figure_db: f64, // dB, nf would be ambiguous between noise factor and noise figure
     pub output_p1db_dbm: Option<f64>, // dBm, output 1 dB compression point
-    pub output_ip3_dbm: Option<f64>,  // dBm, output third-order intercept point
+    pub output_ip3_dbm: Option<f64>, // dBm, output third-order intercept point
 }
 
 impl fmt::Display for Block {
@@ -268,8 +268,10 @@ impl fmt::Display for Imd3Point {
         write!(
             f,
             "Imd3Point {{ Pin: {:.1} dBm, Pout: {:.1} dBm, IM3: {:.1} dBm, rejection: {:.1} dB }}",
-            self.input_per_tone_dbm, self.output_per_tone_dbm,
-            self.im3_output_dbm, self.rejection_db
+            self.input_per_tone_dbm,
+            self.output_per_tone_dbm,
+            self.im3_output_dbm,
+            self.rejection_db
         )
     }
 }
@@ -403,7 +405,11 @@ mod tests {
         };
         let dr = amp.dynamic_range_db(1e6).unwrap();
         // P1dB = 10 dBm, noise floor ≈ -114 + 20 = -94 dBm → DR ≈ 104 dB
-        assert!(dr > 100.0 && dr < 115.0, "Expected DR ~104 dB, got {:.1}", dr);
+        assert!(
+            dr > 100.0 && dr < 115.0,
+            "Expected DR ~104 dB, got {:.1}",
+            dr
+        );
     }
 
     #[test]
@@ -423,7 +429,11 @@ mod tests {
         };
         let dr = amp.input_dynamic_range_db(1e6).unwrap();
         // input P1dB = -10, input noise ≈ -114 dBm → DR ≈ 104 dB
-        assert!(dr > 100.0 && dr < 115.0, "Expected input DR ~104 dB, got {:.1}", dr);
+        assert!(
+            dr > 100.0 && dr < 115.0,
+            "Expected input DR ~104 dB, got {:.1}",
+            dr
+        );
     }
 
     // ----- AM-AM Tests -----
@@ -544,8 +554,11 @@ mod tests {
         let im3_at_m30 = amp.imd3_output_power_dbm(-30.0).unwrap();
         let im3_at_m29 = amp.imd3_output_power_dbm(-29.0).unwrap();
         let delta = im3_at_m29 - im3_at_m30;
-        assert!((delta - 3.0).abs() < 0.01,
-            "IM3 should increase 3 dB per 1 dB input, got {:.2} dB", delta);
+        assert!(
+            (delta - 3.0).abs() < 0.01,
+            "IM3 should increase 3 dB per 1 dB input, got {:.2} dB",
+            delta
+        );
     }
 
     #[test]
