@@ -3,6 +3,35 @@ use std::fmt;
 
 use crate::block::Block;
 
+/// Summary of dynamic range metrics at a given node in the cascade.
+#[derive(Clone, Debug)]
+pub struct DynamicRange {
+    /// Linear dynamic range: output P1dB minus noise floor (dB).
+    pub linear_dr_db: f64,
+    /// Spur-free dynamic range (dB), from existing SFDR calculation.
+    pub sfdr_db: Option<f64>,
+    /// Minimum detectable signal: noise floor at this node (dBm).
+    pub mds_dbm: f64,
+    /// Maximum input power before compression: input P1dB = output P1dB − cumulative gain (dBm).
+    pub max_input_dbm: f64,
+}
+
+impl fmt::Display for DynamicRange {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "DynamicRange {{ linear_dr: {:.1} dB, sfdr: {}, mds: {:.1} dBm, max_input: {:.1} dBm }}",
+            self.linear_dr_db,
+            match self.sfdr_db {
+                Some(v) => format!("{:.1} dB", v),
+                None => "N/A".to_string(),
+            },
+            self.mds_dbm,
+            self.max_input_dbm
+        )
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct SignalNode {
     pub name: String,             // name of node, like "Input" or "Amplifier 1 Output"
@@ -15,6 +44,7 @@ pub struct SignalNode {
     pub cumulative_noise_temperature: Option<f64>,
     pub cumulative_oip3_dbm: Option<f64>,     // dBm, cascaded output IP3
     pub sfdr_db: Option<f64>,                  // dB, spur-free dynamic range
+    pub output_p1db_dbm: Option<f64>,          // dBm, output P1dB at this node
 }
 
 impl fmt::Display for SignalNode {
@@ -40,6 +70,7 @@ impl Default for SignalNode {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         }
     }
 }
@@ -209,6 +240,7 @@ impl SignalNode {
             cumulative_noise_temperature,
             cumulative_oip3_dbm,
             sfdr_db,
+            output_p1db_dbm: block.output_p1db_dbm,
         }
     }
 
@@ -218,6 +250,31 @@ impl SignalNode {
 
     pub fn noise_temperature(&self) -> f64 {
         rfconversions::noise::noise_temperature_from_noise_figure(self.cumulative_noise_figure_db)
+    }
+
+    /// Linear dynamic range at this node in dB.
+    ///
+    /// `output_p1db_dbm - noise_power_dbm`
+    ///
+    /// Returns `None` if `output_p1db_dbm` is not set.
+    pub fn dynamic_range_db(&self) -> Option<f64> {
+        let p1db = self.output_p1db_dbm?;
+        Some(p1db - self.noise_power_dbm)
+    }
+
+    /// Build a [`DynamicRange`] summary from this node's fields.
+    ///
+    /// Returns `None` if `output_p1db_dbm` is not set.
+    pub fn dynamic_range_summary(&self) -> Option<DynamicRange> {
+        let output_p1db = self.output_p1db_dbm?;
+        let linear_dr_db = output_p1db - self.noise_power_dbm;
+        let max_input_dbm = output_p1db - self.cumulative_gain_db;
+        Some(DynamicRange {
+            linear_dr_db,
+            sfdr_db: self.sfdr_db,
+            mds_dbm: self.noise_power_dbm,
+            max_input_dbm,
+        })
     }
 }
 
@@ -238,6 +295,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
         let amplifier = super::Block {
             name: "Simple Amplifier".to_string(),
@@ -274,6 +332,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -311,6 +370,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
         let amplifier = super::Block {
             name: "Low Noise Amplifier".to_string(),
@@ -358,6 +418,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
 
         // Case 1: Standard ~290K noise temperature (NF=3dB implies F=2, T=290K if T0=290K? No, T = T0 * (F-1). If F=2, T=290. Total Noise Temp = T_source + T_added. SOurce is usually 290K.
@@ -393,6 +454,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
         // SNR = -100 - (-174) = 74 dB
         let snr_db = node.signal_to_noise_ratio_db();
@@ -415,6 +477,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
 
         // 1. Verify input node has None for cumulative_noise_temperature
@@ -469,6 +532,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
 
         // 1. Verify input node has None for cumulative_noise_temperature
@@ -522,6 +586,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
 
         // Block with 20 dB gain and output P1dB at 10 dBm
@@ -585,6 +650,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
 
         let lna = super::Block {
@@ -625,6 +691,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
 
         let lna = super::Block {
@@ -685,6 +752,7 @@ mod tests {
             cumulative_noise_temperature: None,
             cumulative_oip3_dbm: None,
             sfdr_db: None,
+            output_p1db_dbm: None,
         };
 
         let lna = super::Block {
@@ -702,6 +770,98 @@ mod tests {
         let expected_noise_floor = -174.0 + 60.0 + node.cumulative_noise_figure_db;
         let expected_sfdr = 2.0 / 3.0 * (30.0 - expected_noise_floor);
         assert!((sfdr - expected_sfdr).abs() < 0.01, "Expected SFDR ~{}, got {}", expected_sfdr, sfdr);
+    }
+
+    // ----- Phase 4: Dynamic Range at Node Level -----
+
+    #[test]
+    fn dynamic_range_db_returns_p1db_minus_noise_floor() {
+        let node = super::SignalNode {
+            name: "Test".to_string(),
+            signal_power_dbm: -30.0,
+            signal_frequency_hz: 1e9,
+            signal_bandwidth_hz: 1e6,
+            noise_power_dbm: -100.0,
+            cumulative_noise_figure_db: 3.0,
+            cumulative_gain_db: 20.0,
+            cumulative_noise_temperature: None,
+            cumulative_oip3_dbm: None,
+            sfdr_db: None,
+            output_p1db_dbm: Some(10.0),
+        };
+        let dr = node.dynamic_range_db().unwrap();
+        assert!((dr - 110.0).abs() < 1e-10, "Expected 110 dB, got {}", dr);
+    }
+
+    #[test]
+    fn dynamic_range_db_none_without_p1db() {
+        let node = super::SignalNode::default();
+        assert!(node.dynamic_range_db().is_none());
+    }
+
+    #[test]
+    fn dynamic_range_summary_populates_all_fields() {
+        let node = super::SignalNode {
+            name: "Test".to_string(),
+            signal_power_dbm: -30.0,
+            signal_frequency_hz: 1e9,
+            signal_bandwidth_hz: 1e6,
+            noise_power_dbm: -100.0,
+            cumulative_noise_figure_db: 3.0,
+            cumulative_gain_db: 20.0,
+            cumulative_noise_temperature: None,
+            cumulative_oip3_dbm: Some(30.0),
+            sfdr_db: Some(80.0),
+            output_p1db_dbm: Some(10.0),
+        };
+        let summary = node.dynamic_range_summary().unwrap();
+        // linear_dr = 10 - (-100) = 110
+        assert!((summary.linear_dr_db - 110.0).abs() < 1e-10);
+        // sfdr from node
+        assert_eq!(summary.sfdr_db, Some(80.0));
+        // mds = noise_power_dbm
+        assert!((summary.mds_dbm - (-100.0)).abs() < 1e-10);
+        // max_input = output_p1db - gain = 10 - 20 = -10
+        assert!((summary.max_input_dbm - (-10.0)).abs() < 1e-10);
+    }
+
+    #[test]
+    fn mds_equals_noise_power() {
+        let node = super::SignalNode {
+            name: "Test".to_string(),
+            signal_power_dbm: -30.0,
+            signal_frequency_hz: 1e9,
+            signal_bandwidth_hz: 1e6,
+            noise_power_dbm: -95.0,
+            cumulative_noise_figure_db: 3.0,
+            cumulative_gain_db: 20.0,
+            cumulative_noise_temperature: None,
+            cumulative_oip3_dbm: None,
+            sfdr_db: None,
+            output_p1db_dbm: Some(10.0),
+        };
+        let summary = node.dynamic_range_summary().unwrap();
+        assert!((summary.mds_dbm - node.noise_power_dbm).abs() < 1e-10);
+    }
+
+    #[test]
+    fn max_input_equals_output_p1db_minus_gain() {
+        let node = super::SignalNode {
+            name: "Test".to_string(),
+            signal_power_dbm: -30.0,
+            signal_frequency_hz: 1e9,
+            signal_bandwidth_hz: 1e6,
+            noise_power_dbm: -100.0,
+            cumulative_noise_figure_db: 3.0,
+            cumulative_gain_db: 25.0,
+            cumulative_noise_temperature: None,
+            cumulative_oip3_dbm: None,
+            sfdr_db: None,
+            output_p1db_dbm: Some(15.0),
+        };
+        let summary = node.dynamic_range_summary().unwrap();
+        // 15 - 25 = -10
+        assert!((summary.max_input_dbm - (-10.0)).abs() < 1e-10);
     }
 
 }

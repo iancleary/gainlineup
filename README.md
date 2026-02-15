@@ -225,6 +225,95 @@ for pt in &sweep {
 
 ---
 
+## Node-Level Dynamic Range Summary
+
+After running a cascade, each `SignalNode` can produce a dynamic range summary that combines P1dB, noise floor, SFDR, and input limits into one struct.
+
+```rust
+use gainlineup::{Input, Block, cascade_vector_return_output};
+
+let input = Input::new(6.0e9, 1.0e6, -80.0, Some(50.0));
+let blocks = vec![
+    Block {
+        name: "LNA".to_string(),
+        gain_db: 20.0,
+        noise_figure_db: 1.5,
+        output_p1db_dbm: Some(5.0),
+        output_ip3_dbm: Some(20.0),
+    },
+];
+let node = cascade_vector_return_output(input, blocks);
+
+// Simple linear dynamic range
+if let Some(dr) = node.dynamic_range_db() {
+    println!("Linear DR: {:.1} dB", dr);
+}
+
+// Full summary
+if let Some(summary) = node.dynamic_range_summary() {
+    println!("Linear DR: {:.1} dB", summary.linear_dr_db);
+    println!("SFDR:      {:?}", summary.sfdr_db);
+    println!("MDS:       {:.1} dBm", summary.mds_dbm);
+    println!("Max input: {:.1} dBm", summary.max_input_dbm);
+}
+```
+
+Returns `None` when the node has no P1dB (e.g., a passive stage without a compression spec).
+
+---
+
+## AmplifierModel + AM-PM
+
+`AmplifierModel` wraps a `Block` and adds AM-PM (phase distortion) characterization. It's a separate struct — the core `Block` stays simple for cascade analysis, while `AmplifierModel` provides richer single-amplifier modeling.
+
+```rust
+use gainlineup::{Block, AmplifierModel};
+
+let pa = Block {
+    name: "Power Amp".to_string(),
+    gain_db: 20.0,
+    noise_figure_db: 5.0,
+    output_p1db_dbm: Some(10.0),
+    output_ip3_dbm: Some(25.0),
+};
+
+// Simple: no AM-PM
+let model = AmplifierModel::new(&pa);
+
+// With AM-PM coefficient (10 °/dB near P1dB)
+let model = AmplifierModel::with_am_pm(&pa, 10.0);
+
+// Builder pattern for full configuration
+let model = AmplifierModel::builder(&pa)
+    .am_pm_coefficient(10.0)
+    .saturation_power(25.0)
+    .build();
+
+// Phase shift at a given input power
+if let Some(phase) = model.phase_shift_at(-5.0) {
+    println!("Phase shift: {:.1}°", phase);
+}
+
+// Combined AM-AM + AM-PM sweep
+let sweep = model.am_am_am_pm_sweep(-40.0, 0.0, 1.0);
+for pt in &sweep {
+    println!("Pin={:.0} Pout={:.1} Gain={:.1} Δφ={:?}",
+        pt.input_dbm, pt.output_dbm, pt.gain_db, pt.phase_shift_deg);
+}
+
+// Required backoff for a phase budget
+if let Some(backoff) = model.backoff_for_target_phase(5.0) {
+    println!("Backoff for ≤5° phase: {:.1} dB below P1dB", backoff);
+}
+
+// EVM from AM-PM distortion
+if let Some(evm) = model.evm_from_am_pm(-5.0) {
+    println!("EVM from AM-PM: {:.4} ({:.2}%)", evm, evm * 100.0);
+}
+```
+
+---
+
 ## CLI (TOML File Input)
 
 The command-line tool reads a TOML file defining the input and blocks, runs the cascade, and generates an HTML table.
@@ -294,6 +383,9 @@ The CLI generates an HTML visualization of the cascade:
 | `Block`      | A component: gain, NF, P1dB, IP3                 |
 | `SignalNode`  | Result at each stage: power, noise, NF, gain, OIP3, SFDR |
 | `Imd3Point`  | Two-tone test result: carrier + IM3 levels        |
+| `DynamicRange` | Summary: linear DR, SFDR, MDS, max input        |
+| `AmplifierModel` | Block wrapper with AM-PM characterization     |
+| `AmplifierPoint` | Combined AM-AM + AM-PM sweep point             |
 
 ### Cascade Functions
 
@@ -326,6 +418,8 @@ The CLI generates an HTML visualization of the cascade:
 |-----------------------------|----------------------------------------|
 | `signal_to_noise_ratio_db()`| SNR at this node (dB)                  |
 | `noise_spectral_density()`  | Noise PSD (dBm/Hz)                     |
+| `dynamic_range_db()`        | Linear DR at node: P1dB − noise (dB)   |
+| `dynamic_range_summary()`   | Full `DynamicRange` summary             |
 
 ---
 

@@ -11,9 +11,12 @@ mod open;
 #[cfg(feature = "plot")]
 mod plot;
 
+mod amplifier_model;
+
+pub use amplifier_model::{AmplifierModel, AmplifierModelBuilder, AmplifierPoint};
 pub use block::{Block, Imd3Point};
 pub use input::Input;
-pub use node::SignalNode;
+pub use node::{DynamicRange, SignalNode};
 
 // returns final output signal node, handling compression point if present
 pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalNode {
