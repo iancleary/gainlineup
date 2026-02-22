@@ -1,5 +1,5 @@
 [package]
-authors = ["Ian Cleary <rust@iancleary.me>"]
+authors = ["Ian Cleary <iancleary@hey.com>"]
 description = "A Gain Lineup toolbox for RF Modeling"
 documentation = "https://docs.rs/gainlineup"
 edition = "2021"
@@ -7,15 +7,15 @@ homepage = "https://github.com/iancleary/gainlineup"
 license = "MIT"
 name = "gainlineup"
 repository = "https://github.com/iancleary/gainlineup"
-version = "0.20.0"
+version = "0.20.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rfconversions = "0.5.1"
+rfconversions = "0.6.0"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.9.8"
-touchstone = "0.10.4"
+touchstone = "0.11.2"
 
 [features]
 default = ["cli", "plot"]
