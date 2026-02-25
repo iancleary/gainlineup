@@ -4,6 +4,24 @@ use std::fmt;
 use crate::block::Block;
 
 /// Summary of dynamic range metrics at a given node in the cascade.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::{Input, Block, SignalNode};
+///
+/// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+/// let lna = Block {
+///     name: "LNA".to_string(),
+///     gain_db: 20.0,
+///     noise_figure_db: 2.0,
+///     output_p1db_dbm: Some(10.0),
+///     output_ip3_dbm: Some(25.0),
+/// };
+/// let node = input.cascade_block(&lna);
+/// let dr = node.dynamic_range_summary().unwrap();
+/// assert!(dr.linear_dr_db > 90.0);
+/// ```
 #[derive(Clone, Debug)]
 pub struct DynamicRange {
     /// Linear dynamic range: output P1dB minus noise floor (dB).
@@ -32,6 +50,27 @@ impl fmt::Display for DynamicRange {
     }
 }
 
+/// Output signal at a node in the RF cascade, containing power, noise, and gain information.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::{Input, Block, SignalNode};
+///
+/// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+/// let lna = Block {
+///     name: "LNA".to_string(),
+///     gain_db: 30.0,
+///     noise_figure_db: 1.5,
+///     output_p1db_dbm: None,
+///     output_ip3_dbm: None,
+/// };
+/// let node = input.cascade_block(&lna);
+/// assert_eq!(node.signal_power_dbm, 0.0);
+/// assert_eq!(node.cumulative_gain_db, 30.0);
+/// let snr = node.signal_to_noise_ratio_db();
+/// assert!(snr > 50.0);
+/// ```
 #[derive(Clone, Debug)]
 pub struct SignalNode {
     pub name: String,             // name of node, like "Input" or "Amplifier 1 Output"
@@ -76,6 +115,25 @@ impl Default for SignalNode {
 }
 
 impl SignalNode {
+    /// Noise spectral density in dBm/Hz at this node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Input, Block};
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 2.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let node = input.cascade_block(&lna);
+    /// let nsd = node.noise_spectral_density();
+    /// assert!(nsd < -140.0); // well below signal levels
+    /// ```
     pub fn noise_spectral_density(&self) -> f64 {
         let noise_spectral_density_dbm_per_hz =
             self.noise_power_dbm - self.signal_bandwidth_hz.log10() * 10.0;
@@ -89,6 +147,25 @@ impl SignalNode {
         noise_spectral_density_dbm_per_hz
     }
 
+    /// Signal-to-noise ratio in dB at this node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Input, Block};
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 2.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let node = input.cascade_block(&lna);
+    /// let snr = node.signal_to_noise_ratio_db();
+    /// assert!(snr > 50.0);
+    /// ```
     pub fn signal_to_noise_ratio_db(&self) -> f64 {
         let signal_to_noise_ratio_db = self.signal_power_dbm - self.noise_power_dbm;
 
@@ -98,6 +175,32 @@ impl SignalNode {
         signal_to_noise_ratio_db
     }
 
+    /// Cascade this node through another block, producing a new [`SignalNode`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Input, Block};
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 30.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let atten = Block {
+    ///     name: "Attenuator".to_string(),
+    ///     gain_db: -6.0,
+    ///     noise_figure_db: 6.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let after_lna = input.cascade_block(&lna);
+    /// let after_atten = after_lna.cascade_block(&atten);
+    /// assert_eq!(after_atten.signal_power_dbm, -6.0); // -30 + 30 - 6
+    /// ```
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
         #[cfg(feature = "debug-print")]
         println!("START NODE Cascade_block");
@@ -243,10 +346,48 @@ impl SignalNode {
         }
     }
 
+    /// Cumulative noise factor (linear) at this node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Input, Block};
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let node = input.cascade_block(&lna);
+    /// let nf = node.noise_factor();
+    /// assert!((nf - 2.0).abs() < 0.01); // 3 dB ≈ factor 2
+    /// ```
     pub fn noise_factor(&self) -> f64 {
         rfconversions::noise::noise_factor_from_noise_figure(self.cumulative_noise_figure_db)
     }
 
+    /// Cumulative noise temperature in Kelvin at this node.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Input, Block};
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let node = input.cascade_block(&lna);
+    /// let temp = node.noise_temperature();
+    /// assert!(temp > 200.0 && temp < 400.0); // ~290 K for 3 dB NF
+    /// ```
     pub fn noise_temperature(&self) -> f64 {
         rfconversions::noise::noise_temperature_from_noise_figure(self.cumulative_noise_figure_db)
     }
@@ -256,6 +397,24 @@ impl SignalNode {
     /// `output_p1db_dbm - noise_power_dbm`
     ///
     /// Returns `None` if `output_p1db_dbm` is not set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Input, Block};
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 2.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let node = input.cascade_block(&lna);
+    /// let dr = node.dynamic_range_db().unwrap();
+    /// assert!(dr > 90.0);
+    /// ```
     pub fn dynamic_range_db(&self) -> Option<f64> {
         let p1db = self.output_p1db_dbm?;
         Some(p1db - self.noise_power_dbm)
@@ -264,6 +423,25 @@ impl SignalNode {
     /// Build a [`DynamicRange`] summary from this node's fields.
     ///
     /// Returns `None` if `output_p1db_dbm` is not set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Input, Block};
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 2.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: Some(25.0),
+    /// };
+    /// let node = input.cascade_block(&lna);
+    /// let summary = node.dynamic_range_summary().unwrap();
+    /// assert!(summary.linear_dr_db > 90.0);
+    /// assert!(summary.sfdr_db.is_some());
+    /// ```
     pub fn dynamic_range_summary(&self) -> Option<DynamicRange> {
         let output_p1db = self.output_p1db_dbm?;
         let linear_dr_db = output_p1db - self.noise_power_dbm;
