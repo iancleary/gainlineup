@@ -3,6 +3,25 @@ use std::fmt;
 use crate::block::Block;
 
 /// A single point from a combined AM-AM + AM-PM sweep.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::{Block, AmplifierModel};
+///
+/// let block = Block {
+///     name: "PA".to_string(),
+///     gain_db: 20.0,
+///     noise_figure_db: 5.0,
+///     output_p1db_dbm: Some(30.0),
+///     output_ip3_dbm: None,
+/// };
+/// let model = AmplifierModel::with_am_pm(&block, 5.0);
+/// let sweep = model.am_am_am_pm_sweep(-30.0, -30.0, 1.0);
+/// let point = &sweep[0];
+/// assert!((point.input_dbm - (-30.0)).abs() < 0.01);
+/// assert!((point.gain_db - 20.0).abs() < 0.01);
+/// ```
 #[derive(Clone, Debug)]
 pub struct AmplifierPoint {
     /// Input power (dBm).
@@ -35,6 +54,23 @@ impl fmt::Display for AmplifierPoint {
 ///
 /// This is intentionally separate from `Block` to keep the core cascade model
 /// simple while allowing richer amplifier analysis when needed.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::{Block, AmplifierModel};
+///
+/// let block = Block {
+///     name: "PA".to_string(),
+///     gain_db: 25.0,
+///     noise_figure_db: 6.0,
+///     output_p1db_dbm: Some(33.0),
+///     output_ip3_dbm: Some(45.0),
+/// };
+/// let model = AmplifierModel::with_am_pm(&block, 8.0); // 8 °/dB AM-PM
+/// let phase = model.phase_shift_at(0.0).unwrap();
+/// assert!(phase >= 0.0);
+/// ```
 #[derive(Clone, Debug)]
 pub struct AmplifierModel<'a> {
     /// The underlying block with gain, NF, P1dB, and IP3.
@@ -47,6 +83,22 @@ pub struct AmplifierModel<'a> {
 
 impl<'a> AmplifierModel<'a> {
     /// Create an amplifier model with no AM-PM characterization.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 2.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::new(&block);
+    /// assert!(model.phase_shift_at(-30.0).is_none());
+    /// ```
     pub fn new(block: &'a Block) -> Self {
         Self {
             block,
@@ -56,6 +108,24 @@ impl<'a> AmplifierModel<'a> {
     }
 
     /// Create an amplifier model with AM-PM coefficient.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(30.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::with_am_pm(&block, 10.0);
+    /// // At input P1dB (10 dBm), phase shift is 0
+    /// let phase = model.phase_shift_at(10.0).unwrap();
+    /// assert!((phase - 0.0).abs() < 1e-10);
+    /// ```
     pub fn with_am_pm(block: &'a Block, coeff_deg_per_db: f64) -> Self {
         Self {
             block,
@@ -65,6 +135,22 @@ impl<'a> AmplifierModel<'a> {
     }
 
     /// Create an amplifier model with saturation power.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(30.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::with_saturation(&block, 35.0);
+    /// assert_eq!(model.saturation_power_dbm, Some(35.0));
+    /// ```
     pub fn with_saturation(block: &'a Block, psat_dbm: f64) -> Self {
         Self {
             block,
@@ -74,6 +160,25 @@ impl<'a> AmplifierModel<'a> {
     }
 
     /// Return a builder for configuring optional fields.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 25.0,
+    ///     noise_figure_db: 6.0,
+    ///     output_p1db_dbm: Some(33.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::builder(&block)
+    ///     .am_pm_coefficient(8.0)
+    ///     .saturation_power(37.0)
+    ///     .build();
+    /// assert_eq!(model.saturation_power_dbm, Some(37.0));
+    /// ```
     pub fn builder(block: &'a Block) -> AmplifierModelBuilder<'a> {
         AmplifierModelBuilder {
             block,
@@ -95,6 +200,24 @@ impl<'a> AmplifierModel<'a> {
     ///
     /// Returns `None` if no AM-PM coefficient is set or if `output_p1db_dbm` is not
     /// set on the underlying block.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(10.0), // input P1dB = -10 dBm
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::with_am_pm(&block, 10.0);
+    /// // 5 dB above input P1dB → 50° phase shift
+    /// let phase = model.phase_shift_at(-5.0).unwrap();
+    /// assert!((phase - 50.0).abs() < 1e-10);
+    /// ```
     pub fn phase_shift_at(&self, input_power_dbm: f64) -> Option<f64> {
         let coeff = self.am_pm_coefficient_deg_per_db?;
         let input_p1db = self.input_p1db_dbm()?;
@@ -108,6 +231,23 @@ impl<'a> AmplifierModel<'a> {
     /// Combined AM-AM + AM-PM sweep.
     ///
     /// Returns one [`AmplifierPoint`] for each step from `start_dbm` to `stop_dbm`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(30.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::with_am_pm(&block, 5.0);
+    /// let sweep = model.am_am_am_pm_sweep(-40.0, -20.0, 5.0);
+    /// assert_eq!(sweep.len(), 5);
+    /// ```
     pub fn am_am_am_pm_sweep(
         &self,
         start_dbm: f64,
@@ -140,6 +280,23 @@ impl<'a> AmplifierModel<'a> {
     /// requires operating below P1dB.
     ///
     /// Returns `None` if no AM-PM coefficient is set or coefficient is zero.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::with_am_pm(&block, 10.0);
+    /// let backoff = model.backoff_for_target_phase(5.0).unwrap();
+    /// assert!((backoff - (-0.5)).abs() < 1e-10);
+    /// ```
     pub fn backoff_for_target_phase(&self, max_phase_deg: f64) -> Option<f64> {
         let coeff = self.am_pm_coefficient_deg_per_db?;
         if coeff == 0.0 {
@@ -160,6 +317,24 @@ impl<'a> AmplifierModel<'a> {
     /// Approximation: `EVM ≈ sin(Δφ)` for small angles, expressed as a ratio (not %).
     ///
     /// Returns `None` if phase shift is unavailable.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::with_am_pm(&block, 10.0);
+    /// // At deep backoff, EVM should be ~0
+    /// let evm = model.evm_from_am_pm(-50.0).unwrap();
+    /// assert!(evm < 0.001);
+    /// ```
     pub fn evm_from_am_pm(&self, input_power_dbm: f64) -> Option<f64> {
         let phase_deg = self.phase_shift_at(input_power_dbm)?;
         let phase_rad = phase_deg.to_radians();
@@ -168,6 +343,25 @@ impl<'a> AmplifierModel<'a> {
 }
 
 /// Builder for [`AmplifierModel`].
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::{Block, AmplifierModel, AmplifierModelBuilder};
+///
+/// let block = Block {
+///     name: "PA".to_string(),
+///     gain_db: 25.0,
+///     noise_figure_db: 6.0,
+///     output_p1db_dbm: Some(33.0),
+///     output_ip3_dbm: None,
+/// };
+/// let model = AmplifierModel::builder(&block)
+///     .am_pm_coefficient(8.0)
+///     .saturation_power(37.0)
+///     .build();
+/// assert_eq!(model.am_pm_coefficient_deg_per_db, Some(8.0));
+/// ```
 #[derive(Clone, Debug)]
 pub struct AmplifierModelBuilder<'a> {
     block: &'a Block,
@@ -177,18 +371,70 @@ pub struct AmplifierModelBuilder<'a> {
 
 impl<'a> AmplifierModelBuilder<'a> {
     /// Set the AM-PM conversion coefficient (°/dB).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(30.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::builder(&block)
+    ///     .am_pm_coefficient(5.0)
+    ///     .build();
+    /// assert_eq!(model.am_pm_coefficient_deg_per_db, Some(5.0));
+    /// ```
     pub fn am_pm_coefficient(mut self, coeff_deg_per_db: f64) -> Self {
         self.am_pm_coefficient_deg_per_db = Some(coeff_deg_per_db);
         self
     }
 
     /// Set the saturated output power (dBm).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(30.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::builder(&block)
+    ///     .saturation_power(35.0)
+    ///     .build();
+    /// assert_eq!(model.saturation_power_dbm, Some(35.0));
+    /// ```
     pub fn saturation_power(mut self, psat_dbm: f64) -> Self {
         self.saturation_power_dbm = Some(psat_dbm);
         self
     }
 
     /// Build the [`AmplifierModel`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, AmplifierModel};
+    ///
+    /// let block = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(30.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let model = AmplifierModel::builder(&block).build();
+    /// assert!(model.am_pm_coefficient_deg_per_db.is_none());
+    /// ```
     pub fn build(self) -> AmplifierModel<'a> {
         AmplifierModel {
             block: self.block,

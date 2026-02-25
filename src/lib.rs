@@ -18,7 +18,34 @@ pub use block::{Block, Imd3Point};
 pub use input::Input;
 pub use node::{DynamicRange, SignalNode};
 
-// returns final output signal node, handling compression point if present
+/// Cascade a vector of blocks and return only the final output [`SignalNode`].
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::{Input, Block, cascade_vector_return_output};
+///
+/// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+/// let blocks = vec![
+///     Block {
+///         name: "LNA".to_string(),
+///         gain_db: 30.0,
+///         noise_figure_db: 1.5,
+///         output_p1db_dbm: None,
+///         output_ip3_dbm: None,
+///     },
+///     Block {
+///         name: "Attenuator".to_string(),
+///         gain_db: -6.0,
+///         noise_figure_db: 6.0,
+///         output_p1db_dbm: None,
+///         output_ip3_dbm: None,
+///     },
+/// ];
+/// let output = cascade_vector_return_output(input, blocks);
+/// assert_eq!(output.signal_power_dbm, -6.0); // -30 + 30 - 6
+/// assert_eq!(output.cumulative_gain_db, 24.0);
+/// ```
 pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalNode {
     let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
 
@@ -33,7 +60,35 @@ pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalN
     cascading_signal
 }
 
-// returns vector of output signal nodes, handling compression point if present
+/// Cascade a vector of blocks and return a [`SignalNode`] for each stage output.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::{Input, Block, cascade_vector_return_vector};
+///
+/// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+/// let blocks = vec![
+///     Block {
+///         name: "LNA".to_string(),
+///         gain_db: 30.0,
+///         noise_figure_db: 1.5,
+///         output_p1db_dbm: None,
+///         output_ip3_dbm: None,
+///     },
+///     Block {
+///         name: "Filter".to_string(),
+///         gain_db: -3.0,
+///         noise_figure_db: 3.0,
+///         output_p1db_dbm: None,
+///         output_ip3_dbm: None,
+///     },
+/// ];
+/// let nodes = cascade_vector_return_vector(input, blocks);
+/// assert_eq!(nodes.len(), 2);
+/// assert_eq!(nodes[0].signal_power_dbm, 0.0);  // after LNA
+/// assert_eq!(nodes[1].signal_power_dbm, -3.0);  // after filter
+/// ```
 pub fn cascade_vector_return_vector(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
     let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
 
@@ -54,6 +109,25 @@ pub fn cascade_vector_return_vector(input: Input, blocks: Vec<Block>) -> Vec<Sig
 ///
 /// For each input power, the signal is passed through every block in sequence
 /// using each block's compression model. Returns Vec of `(Pin_dBm, Pout_dBm)`.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::{Block, cascade_am_am_sweep};
+///
+/// let blocks = vec![
+///     Block {
+///         name: "LNA".to_string(),
+///         gain_db: 20.0,
+///         noise_figure_db: 3.0,
+///         output_p1db_dbm: Some(10.0),
+///         output_ip3_dbm: None,
+///     },
+/// ];
+/// let sweep = cascade_am_am_sweep(&blocks, -40.0, -20.0, 10.0);
+/// assert_eq!(sweep.len(), 3);
+/// assert!((sweep[0].1 - (-20.0)).abs() < 0.01); // -40 + 20 = -20 (linear)
+/// ```
 pub fn cascade_am_am_sweep(
     blocks: &[Block],
     start_dbm: f64,
@@ -81,6 +155,25 @@ pub fn cascade_am_am_sweep(
 /// Sweep input power through a cascade and return gain compression curve.
 ///
 /// Returns Vec of `(Pin_dBm, Gain_dB)` showing total cascade gain vs. input power.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::{Block, cascade_gain_compression_sweep};
+///
+/// let blocks = vec![
+///     Block {
+///         name: "Amp".to_string(),
+///         gain_db: 20.0,
+///         noise_figure_db: 3.0,
+///         output_p1db_dbm: Some(10.0),
+///         output_ip3_dbm: None,
+///     },
+/// ];
+/// let sweep = cascade_gain_compression_sweep(&blocks, -40.0, 0.0, 10.0);
+/// assert!((sweep[0].1 - 20.0).abs() < 0.01); // full gain at low power
+/// assert!(sweep.last().unwrap().1 < 20.0);    // compressed at high power
+/// ```
 pub fn cascade_gain_compression_sweep(
     blocks: &[Block],
     start_dbm: f64,

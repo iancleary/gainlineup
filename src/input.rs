@@ -5,8 +5,25 @@ use crate::block::Block;
 use crate::constants;
 use crate::node::SignalNode;
 
-// the input is the signal that enters the cascade, which is different than the nodes
-// that are the outputs of each block, see block.rs for more details
+/// The input signal that enters the RF cascade.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::Input;
+///
+/// // 1 GHz signal at -30 dBm with 10 MHz bandwidth
+/// let input = Input::new(1.0e9, 10.0e6, -30.0, Some(290.0));
+/// assert_eq!(input.power_dbm, -30.0);
+///
+/// // Using struct literal
+/// let input = Input {
+///     frequency_hz: 1.0e9,
+///     bandwidth_hz: 1.0e6,
+///     power_dbm: -50.0,
+///     noise_temperature_k: Some(270.0),
+/// };
+/// ```
 #[derive(Clone, Debug)]
 pub struct Input {
     pub frequency_hz: f64,                // Hz, center frequency of signal
@@ -38,6 +55,17 @@ impl Default for Input {
 }
 
 impl Input {
+    /// Create a new input signal.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Input;
+    ///
+    /// let input = Input::new(2.4e9, 20.0e6, -40.0, Some(290.0));
+    /// assert_eq!(input.frequency_hz, 2.4e9);
+    /// assert_eq!(input.bandwidth_hz, 20.0e6);
+    /// ```
     pub fn new(
         frequency_hz: f64,
         bandwidth_hz: f64,
@@ -52,6 +80,17 @@ impl Input {
         }
     }
 
+    /// Noise spectral density in dBm/Hz.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Input;
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+    /// let nsd = input.noise_spectral_density();
+    /// assert!((nsd - (-174.0)).abs() < 0.1); // ~-174 dBm/Hz at 290 K
+    /// ```
     pub fn noise_spectral_density(&self) -> f64 {
         let k = constants::BOLTZMANN;
         let t = self.noise_temperature_k.unwrap_or(270.0);
@@ -72,7 +111,18 @@ impl Input {
         noise_spectral_density_dbm_per_hz
     }
 
-    // input noise power (kTB), thermal noise
+    /// Input noise power in dBm (kTB thermal noise).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Input;
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+    /// let noise = input.noise_power();
+    /// // kTB at 290K, 1 MHz ≈ -114 dBm
+    /// assert!((noise - (-114.0)).abs() < 0.1);
+    /// ```
     pub fn noise_power(&self) -> f64 {
         let k = constants::BOLTZMANN;
         let t = self.noise_temperature_k.unwrap_or(270.0);
@@ -89,6 +139,25 @@ impl Input {
         noise_power_dbm
     }
 
+    /// Cascade the input signal through a block, producing a [`SignalNode`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Input, Block};
+    ///
+    /// let input = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 30.0,
+    ///     noise_figure_db: 1.5,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let output = input.cascade_block(&lna);
+    /// assert_eq!(output.signal_power_dbm, 0.0); // -30 + 30 = 0 dBm
+    /// assert_eq!(output.name, "LNA Output");
+    /// ```
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
         #[cfg(feature = "debug-print")]
         println!("Start INPUT");

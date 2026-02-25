@@ -3,7 +3,25 @@ use std::fmt;
 
 use crate::constants;
 
-// the definition of a block in the cascade
+/// A single block (stage) in an RF cascade, such as an amplifier, attenuator, or filter.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::Block;
+///
+/// // Low-noise amplifier with 30 dB gain, 1.5 dB noise figure, and +15 dBm output P1dB
+/// let lna = Block {
+///     name: "LNA".to_string(),
+///     gain_db: 30.0,
+///     noise_figure_db: 1.5,
+///     output_p1db_dbm: Some(15.0),
+///     output_ip3_dbm: Some(30.0),
+/// };
+///
+/// assert_eq!(lna.output_power(-40.0), -10.0);
+/// assert_eq!(lna.power_gain(-40.0), 30.0);
+/// ```
 #[derive(Clone, Debug)]
 pub struct Block {
     pub name: String,
@@ -42,15 +60,65 @@ impl Default for Block {
     }
 }
 impl Block {
+    /// Equivalent noise temperature of this block in Kelvin.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 1.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let temp = lna.noise_temperature();
+    /// assert!(temp > 0.0 && temp < 100.0); // ~75 K for 1 dB NF
+    /// ```
     pub fn noise_temperature(&self) -> f64 {
         rfconversions::noise::noise_temperature_from_noise_figure(self.noise_figure_db)
     }
 
+    /// Noise factor (linear, unitless) of this block.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let block = Block {
+    ///     name: "Amp".to_string(),
+    ///     gain_db: 10.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let nf = block.noise_factor();
+    /// assert!((nf - 2.0).abs() < 0.01); // 3 dB NF ≈ factor of 2
+    /// ```
     pub fn noise_factor(&self) -> f64 {
         rfconversions::noise::noise_factor_from_noise_figure(self.noise_figure_db)
     }
 
-    // input noise power (F-1)*kTB
+    /// Input-referred noise power in dBm: `(F-1) × k × T × B`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "Amp".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let noise = amp.input_noise_power(1.0e6);
+    /// assert!(noise < -100.0); // thermal noise is very low
+    /// ```
     pub fn input_noise_power(&self, bandwidth: f64) -> f64 {
         let noise_factor = self.noise_factor();
         let noise_temperature = self.noise_temperature();
@@ -62,7 +130,23 @@ impl Block {
         rfconversions::power::watts_to_dbm(f_minus_1 * ktb)
     }
 
-    // input_noise_power + power_gain (for noise level not signal level) = output_noise_power
+    /// Output noise power in dBm: input noise power plus gain, with compression limiting.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "Amp".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let noise_out = amp.output_noise_power(1.0e6);
+    /// assert!(noise_out < -80.0); // noise floor well below signal levels
+    /// ```
     pub fn output_noise_power(&self, bandwidth: f64) -> f64 {
         #[cfg(feature = "debug-print")]
         println!("START BLOCK output_noise_power");
@@ -107,6 +191,25 @@ impl Block {
         output_noise_power_dbm
     }
 
+    /// Output power in dBm for a given input power, applying compression if P1dB is set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// // Linear region
+    /// assert_eq!(amp.output_power(-30.0), -10.0);
+    /// // Compressed: output clamped to P1dB + 1
+    /// assert_eq!(amp.output_power(0.0), 11.0);
+    /// ```
     pub fn output_power(&self, input_power: f64) -> f64 {
         // this is a simple calculation, which could be upgrade to
         // use the compression curve of a block, if present,
@@ -127,6 +230,23 @@ impl Block {
         output_power_without_compression
     }
 
+    /// Power gain in dB at a given input power, accounting for compression.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "Amp".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// assert_eq!(amp.power_gain(-30.0), 20.0); // linear
+    /// assert!(amp.power_gain(0.0) < 20.0);     // compressed
+    /// ```
     pub fn power_gain(&self, input_power: f64) -> f64 {
         self.output_power(input_power) - input_power
     }
@@ -138,6 +258,22 @@ impl Block {
     /// DR = P1dB_out - noise_floor_out
     ///
     /// Returns None if `output_p1db_dbm` is not set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let dr = lna.dynamic_range_db(1.0e6).unwrap();
+    /// assert!(dr > 100.0); // typical LNA dynamic range
+    /// ```
     pub fn dynamic_range_db(&self, bandwidth_hz: f64) -> Option<f64> {
         let p1db = self.output_p1db_dbm?;
         let noise_floor = self.output_noise_power(bandwidth_hz);
@@ -149,6 +285,22 @@ impl Block {
     /// DR_in = input_P1dB - input_noise_floor
     ///
     /// Useful for receiver front-end analysis. Returns None if `output_p1db_dbm` is not set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let lna = Block {
+    ///     name: "LNA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let dr = lna.input_dynamic_range_db(1.0e6).unwrap();
+    /// assert!(dr > 100.0);
+    /// ```
     pub fn input_dynamic_range_db(&self, bandwidth_hz: f64) -> Option<f64> {
         let input_p1db = self.output_p1db_dbm? - self.gain_db;
         let input_noise = self.input_noise_power(bandwidth_hz);
@@ -161,6 +313,23 @@ impl Block {
     ///
     /// Returns Vec of `(Pin_dBm, Pout_dBm)` pairs. Uses the existing compression
     /// model (linear below P1dB, clamped at P1dB + 1 dB above).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "Driver".to_string(),
+    ///     gain_db: 15.0,
+    ///     noise_figure_db: 4.0,
+    ///     output_p1db_dbm: Some(20.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let curve = amp.am_am_curve(&[-30.0, -20.0, -10.0]);
+    /// assert_eq!(curve.len(), 3);
+    /// assert_eq!(curve[0], (-30.0, -15.0)); // linear: -30 + 15 = -15
+    /// ```
     pub fn am_am_curve(&self, input_powers_dbm: &[f64]) -> Vec<(f64, f64)> {
         input_powers_dbm
             .iter()
@@ -169,6 +338,22 @@ impl Block {
     }
 
     /// Generate AM-AM curve with evenly spaced input power sweep.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "PA".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 5.0,
+    ///     output_p1db_dbm: Some(30.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let sweep = amp.am_am_sweep(-40.0, -20.0, 10.0);
+    /// assert_eq!(sweep.len(), 3); // -40, -30, -20
+    /// ```
     pub fn am_am_sweep(&self, start_dbm: f64, stop_dbm: f64, step_db: f64) -> Vec<(f64, f64)> {
         let powers = sweep_range(start_dbm, stop_dbm, step_db);
         self.am_am_curve(&powers)
@@ -177,6 +362,23 @@ impl Block {
     /// Generate gain compression curve from a slice of input powers.
     ///
     /// Returns Vec of `(Pin_dBm, Gain_dB)` pairs. Shows gain compression directly.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "Amp".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let curve = amp.gain_compression_curve(&[-30.0, 0.0]);
+    /// assert_eq!(curve[0].1, 20.0); // full gain at low power
+    /// assert!(curve[1].1 < 20.0);   // compressed at high power
+    /// ```
     pub fn gain_compression_curve(&self, input_powers_dbm: &[f64]) -> Vec<(f64, f64)> {
         input_powers_dbm
             .iter()
@@ -185,6 +387,23 @@ impl Block {
     }
 
     /// Generate gain compression curve with evenly spaced input power sweep.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "Amp".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: Some(10.0),
+    ///     output_ip3_dbm: None,
+    /// };
+    /// let sweep = amp.gain_compression_sweep(-40.0, 0.0, 10.0);
+    /// assert_eq!(sweep.len(), 5);
+    /// assert_eq!(sweep[0].1, 20.0); // linear at -40 dBm
+    /// ```
     pub fn gain_compression_sweep(
         &self,
         start_dbm: f64,
@@ -204,6 +423,23 @@ impl Block {
     /// ```
     ///
     /// Returns None if `output_ip3_dbm` is not set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "Amp".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: Some(30.0),
+    /// };
+    /// // Pin = -30 → Pout = -10, IM3 = 3×(-10) - 2×30 = -90 dBm
+    /// let im3 = amp.imd3_output_power_dbm(-30.0).unwrap();
+    /// assert!((im3 - (-90.0)).abs() < 0.01);
+    /// ```
     pub fn imd3_output_power_dbm(&self, input_power_per_tone_dbm: f64) -> Option<f64> {
         let oip3 = self.output_ip3_dbm?;
         let pout = self.output_power(input_power_per_tone_dbm);
@@ -218,6 +454,22 @@ impl Block {
     ///
     /// Positive = IM3 is below carrier. Higher is better.
     /// Returns None if `output_ip3_dbm` is not set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "Amp".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: Some(30.0),
+    /// };
+    /// let rejection = amp.imd3_rejection_db(-30.0).unwrap();
+    /// assert!((rejection - 80.0).abs() < 0.01); // 2 × (30 - (-10)) = 80 dB
+    /// ```
     pub fn imd3_rejection_db(&self, input_power_per_tone_dbm: f64) -> Option<f64> {
         let oip3 = self.output_ip3_dbm?;
         let pout = self.output_power(input_power_per_tone_dbm);
@@ -228,6 +480,24 @@ impl Block {
     ///
     /// Returns Vec of [`Imd3Point`] with carrier and IM3 levels at each input power.
     /// Returns empty Vec if `output_ip3_dbm` is not set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::Block;
+    ///
+    /// let amp = Block {
+    ///     name: "Amp".to_string(),
+    ///     gain_db: 20.0,
+    ///     noise_figure_db: 3.0,
+    ///     output_p1db_dbm: None,
+    ///     output_ip3_dbm: Some(30.0),
+    /// };
+    /// let sweep = amp.imd3_sweep(-40.0, -20.0, 10.0);
+    /// assert_eq!(sweep.len(), 3);
+    /// // Rejection decreases as input power increases
+    /// assert!(sweep[0].rejection_db > sweep[2].rejection_db);
+    /// ```
     pub fn imd3_sweep(&self, start_dbm: f64, stop_dbm: f64, step_db: f64) -> Vec<Imd3Point> {
         let oip3 = match self.output_ip3_dbm {
             Some(v) => v,
@@ -251,6 +521,24 @@ impl Block {
 }
 
 /// A single point from a two-tone IMD3 sweep.
+///
+/// # Examples
+///
+/// ```
+/// use gainlineup::Block;
+///
+/// let amp = Block {
+///     name: "Amp".to_string(),
+///     gain_db: 20.0,
+///     noise_figure_db: 3.0,
+///     output_p1db_dbm: None,
+///     output_ip3_dbm: Some(30.0),
+/// };
+/// let sweep = amp.imd3_sweep(-30.0, -30.0, 1.0);
+/// let point = &sweep[0];
+/// assert!((point.input_per_tone_dbm - (-30.0)).abs() < 0.01);
+/// assert!((point.rejection_db - 80.0).abs() < 0.01);
+/// ```
 #[derive(Clone, Debug)]
 pub struct Imd3Point {
     /// Input power per tone (dBm)
