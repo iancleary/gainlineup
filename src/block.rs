@@ -22,13 +22,23 @@ use crate::constants;
 /// assert_eq!(lna.output_power(-40.0), -10.0);
 /// assert_eq!(lna.power_gain(-40.0), 30.0);
 /// ```
+#[doc(alias = "block")]
+#[doc(alias = "stage")]
+#[doc(alias = "cascade")]
 #[derive(Clone, Debug)]
 pub struct Block {
+    /// Human-readable name of this block (e.g. "LNA", "Filter").
     pub name: String,
-    pub gain_db: f64,                 // dB
-    pub noise_figure_db: f64, // dB, nf would be ambiguous between noise factor and noise figure
-    pub output_p1db_dbm: Option<f64>, // dBm, output 1 dB compression point
-    pub output_ip3_dbm: Option<f64>, // dBm, output third-order intercept point
+    /// Small-signal gain in dB (negative for loss).
+    pub gain_db: f64,
+    /// Noise figure in dB.
+    pub noise_figure_db: f64,
+    /// Output-referred 1 dB compression point in dBm, if applicable.
+    #[doc(alias = "P1dB")]
+    pub output_p1db_dbm: Option<f64>,
+    /// Output-referred third-order intercept point in dBm, if applicable.
+    #[doc(alias = "OIP3")]
+    pub output_ip3_dbm: Option<f64>,
 }
 
 impl fmt::Display for Block {
@@ -77,6 +87,7 @@ impl Block {
     /// let temp = lna.noise_temperature();
     /// assert!(temp > 0.0 && temp < 100.0); // ~75 K for 1 dB NF
     /// ```
+    #[must_use]
     pub fn noise_temperature(&self) -> f64 {
         rfconversions::noise::noise_temperature_from_noise_figure(self.noise_figure_db)
     }
@@ -98,6 +109,7 @@ impl Block {
     /// let nf = block.noise_factor();
     /// assert!((nf - 2.0).abs() < 0.01); // 3 dB NF ≈ factor of 2
     /// ```
+    #[must_use]
     pub fn noise_factor(&self) -> f64 {
         rfconversions::noise::noise_factor_from_noise_figure(self.noise_figure_db)
     }
@@ -119,6 +131,7 @@ impl Block {
     /// let noise = amp.input_noise_power(1.0e6);
     /// assert!(noise < -100.0); // thermal noise is very low
     /// ```
+    #[must_use]
     pub fn input_noise_power(&self, bandwidth: f64) -> f64 {
         let noise_factor = self.noise_factor();
         let noise_temperature = self.noise_temperature();
@@ -147,6 +160,7 @@ impl Block {
     /// let noise_out = amp.output_noise_power(1.0e6);
     /// assert!(noise_out < -80.0); // noise floor well below signal levels
     /// ```
+    #[must_use]
     pub fn output_noise_power(&self, bandwidth: f64) -> f64 {
         #[cfg(feature = "debug-print")]
         println!("START BLOCK output_noise_power");
@@ -210,6 +224,7 @@ impl Block {
     /// // Compressed: output clamped to P1dB + 1
     /// assert_eq!(amp.output_power(0.0), 11.0);
     /// ```
+    #[must_use]
     pub fn output_power(&self, input_power: f64) -> f64 {
         // this is a simple calculation, which could be upgrade to
         // use the compression curve of a block, if present,
@@ -247,6 +262,7 @@ impl Block {
     /// assert_eq!(amp.power_gain(-30.0), 20.0); // linear
     /// assert!(amp.power_gain(0.0) < 20.0);     // compressed
     /// ```
+    #[must_use]
     pub fn power_gain(&self, input_power: f64) -> f64 {
         self.output_power(input_power) - input_power
     }
@@ -274,6 +290,7 @@ impl Block {
     /// let dr = lna.dynamic_range_db(1.0e6).unwrap();
     /// assert!(dr > 100.0); // typical LNA dynamic range
     /// ```
+    #[must_use]
     pub fn dynamic_range_db(&self, bandwidth_hz: f64) -> Option<f64> {
         let p1db = self.output_p1db_dbm?;
         let noise_floor = self.output_noise_power(bandwidth_hz);
@@ -301,6 +318,7 @@ impl Block {
     /// let dr = lna.input_dynamic_range_db(1.0e6).unwrap();
     /// assert!(dr > 100.0);
     /// ```
+    #[must_use]
     pub fn input_dynamic_range_db(&self, bandwidth_hz: f64) -> Option<f64> {
         let input_p1db = self.output_p1db_dbm? - self.gain_db;
         let input_noise = self.input_noise_power(bandwidth_hz);
@@ -330,6 +348,7 @@ impl Block {
     /// assert_eq!(curve.len(), 3);
     /// assert_eq!(curve[0], (-30.0, -15.0)); // linear: -30 + 15 = -15
     /// ```
+    #[must_use]
     pub fn am_am_curve(&self, input_powers_dbm: &[f64]) -> Vec<(f64, f64)> {
         input_powers_dbm
             .iter()
@@ -354,6 +373,7 @@ impl Block {
     /// let sweep = amp.am_am_sweep(-40.0, -20.0, 10.0);
     /// assert_eq!(sweep.len(), 3); // -40, -30, -20
     /// ```
+    #[must_use]
     pub fn am_am_sweep(&self, start_dbm: f64, stop_dbm: f64, step_db: f64) -> Vec<(f64, f64)> {
         let powers = sweep_range(start_dbm, stop_dbm, step_db);
         self.am_am_curve(&powers)
@@ -379,6 +399,7 @@ impl Block {
     /// assert_eq!(curve[0].1, 20.0); // full gain at low power
     /// assert!(curve[1].1 < 20.0);   // compressed at high power
     /// ```
+    #[must_use]
     pub fn gain_compression_curve(&self, input_powers_dbm: &[f64]) -> Vec<(f64, f64)> {
         input_powers_dbm
             .iter()
@@ -404,6 +425,7 @@ impl Block {
     /// assert_eq!(sweep.len(), 5);
     /// assert_eq!(sweep[0].1, 20.0); // linear at -40 dBm
     /// ```
+    #[must_use]
     pub fn gain_compression_sweep(
         &self,
         start_dbm: f64,
@@ -440,6 +462,7 @@ impl Block {
     /// let im3 = amp.imd3_output_power_dbm(-30.0).unwrap();
     /// assert!((im3 - (-90.0)).abs() < 0.01);
     /// ```
+    #[must_use]
     pub fn imd3_output_power_dbm(&self, input_power_per_tone_dbm: f64) -> Option<f64> {
         let oip3 = self.output_ip3_dbm?;
         let pout = self.output_power(input_power_per_tone_dbm);
@@ -470,6 +493,7 @@ impl Block {
     /// let rejection = amp.imd3_rejection_db(-30.0).unwrap();
     /// assert!((rejection - 80.0).abs() < 0.01); // 2 × (30 - (-10)) = 80 dB
     /// ```
+    #[must_use]
     pub fn imd3_rejection_db(&self, input_power_per_tone_dbm: f64) -> Option<f64> {
         let oip3 = self.output_ip3_dbm?;
         let pout = self.output_power(input_power_per_tone_dbm);
@@ -498,6 +522,7 @@ impl Block {
     /// // Rejection decreases as input power increases
     /// assert!(sweep[0].rejection_db > sweep[2].rejection_db);
     /// ```
+    #[must_use]
     pub fn imd3_sweep(&self, start_dbm: f64, stop_dbm: f64, step_db: f64) -> Vec<Imd3Point> {
         let oip3 = match self.output_ip3_dbm {
             Some(v) => v,
@@ -539,6 +564,8 @@ impl Block {
 /// assert!((point.input_per_tone_dbm - (-30.0)).abs() < 0.01);
 /// assert!((point.rejection_db - 80.0).abs() < 0.01);
 /// ```
+#[doc(alias = "IMD3")]
+#[doc(alias = "intermodulation")]
 #[derive(Clone, Debug)]
 pub struct Imd3Point {
     /// Input power per tone (dBm)
