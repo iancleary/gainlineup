@@ -24,12 +24,18 @@ use crate::node::SignalNode;
 ///     noise_temperature_k: Some(270.0),
 /// };
 /// ```
+#[doc(alias = "signal")]
+#[doc(alias = "input power")]
 #[derive(Clone, Debug)]
 pub struct Input {
-    pub frequency_hz: f64,                // Hz, center frequency of signal
-    pub bandwidth_hz: f64,                // Hz, width of signal
-    pub power_dbm: f64,                   // dBm, power of signal
-    pub noise_temperature_k: Option<f64>, // K, noise temperature of signal
+    /// Center frequency of the input signal in Hz.
+    pub frequency_hz: f64,
+    /// Bandwidth of the input signal in Hz.
+    pub bandwidth_hz: f64,
+    /// Input signal power in dBm.
+    pub power_dbm: f64,
+    /// Noise temperature of the input in Kelvin (defaults to 270 K if `None`).
+    pub noise_temperature_k: Option<f64>,
 }
 
 impl fmt::Display for Input {
@@ -66,6 +72,7 @@ impl Input {
     /// assert_eq!(input.frequency_hz, 2.4e9);
     /// assert_eq!(input.bandwidth_hz, 20.0e6);
     /// ```
+    #[must_use]
     pub fn new(
         frequency_hz: f64,
         bandwidth_hz: f64,
@@ -91,6 +98,7 @@ impl Input {
     /// let nsd = input.noise_spectral_density();
     /// assert!((nsd - (-174.0)).abs() < 0.1); // ~-174 dBm/Hz at 290 K
     /// ```
+    #[must_use]
     pub fn noise_spectral_density(&self) -> f64 {
         let k = constants::BOLTZMANN;
         let t = self.noise_temperature_k.unwrap_or(270.0);
@@ -123,6 +131,7 @@ impl Input {
     /// // kTB at 290K, 1 MHz ≈ -114 dBm
     /// assert!((noise - (-114.0)).abs() < 0.1);
     /// ```
+    #[must_use]
     pub fn noise_power(&self) -> f64 {
         let k = constants::BOLTZMANN;
         let t = self.noise_temperature_k.unwrap_or(270.0);
@@ -158,6 +167,7 @@ impl Input {
     /// assert_eq!(output.signal_power_dbm, 0.0); // -30 + 30 = 0 dBm
     /// assert_eq!(output.name, "LNA Output");
     /// ```
+    #[must_use]
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
         #[cfg(feature = "debug-print")]
         println!("Start INPUT");

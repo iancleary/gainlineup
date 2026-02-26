@@ -22,6 +22,8 @@ use crate::block::Block;
 /// let dr = node.dynamic_range_summary().unwrap();
 /// assert!(dr.linear_dr_db > 90.0);
 /// ```
+#[doc(alias = "dynamic range")]
+#[doc(alias = "DR")]
 #[derive(Clone, Debug)]
 pub struct DynamicRange {
     /// Linear dynamic range: output P1dB minus noise floor (dB).
@@ -71,19 +73,34 @@ impl fmt::Display for DynamicRange {
 /// let snr = node.signal_to_noise_ratio_db();
 /// assert!(snr > 50.0);
 /// ```
+#[doc(alias = "signal chain")]
+#[doc(alias = "cascade")]
+#[doc(alias = "NF")]
+#[doc(alias = "noise figure")]
 #[derive(Clone, Debug)]
 pub struct SignalNode {
-    pub name: String,             // name of node, like "Input" or "Amplifier 1 Output"
-    pub signal_frequency_hz: f64, // Hz
-    pub signal_bandwidth_hz: f64, // Hz
-    pub signal_power_dbm: f64,    // dBm
-    pub noise_power_dbm: f64,     // dBm
-    pub cumulative_noise_figure_db: f64, // dB, linear
-    pub cumulative_gain_db: f64,  // cumulative, dB (set to 0 at start)
+    /// Name of this node (e.g. "LNA Output").
+    pub name: String,
+    /// Signal center frequency in Hz.
+    pub signal_frequency_hz: f64,
+    /// Signal bandwidth in Hz.
+    pub signal_bandwidth_hz: f64,
+    /// Signal power at this node in dBm.
+    pub signal_power_dbm: f64,
+    /// Total noise power at this node in dBm.
+    pub noise_power_dbm: f64,
+    /// Cumulative noise figure through the cascade in dB.
+    pub cumulative_noise_figure_db: f64,
+    /// Cumulative gain through the cascade in dB.
+    pub cumulative_gain_db: f64,
+    /// Cumulative noise temperature in Kelvin, if available.
     pub cumulative_noise_temperature: Option<f64>,
-    pub cumulative_oip3_dbm: Option<f64>, // dBm, cascaded output IP3
-    pub sfdr_db: Option<f64>,             // dB, spur-free dynamic range
-    pub output_p1db_dbm: Option<f64>,     // dBm, output P1dB at this node
+    /// Cascaded output-referred IP3 in dBm, if available.
+    pub cumulative_oip3_dbm: Option<f64>,
+    /// Spur-free dynamic range in dB, if OIP3 is available.
+    pub sfdr_db: Option<f64>,
+    /// Output P1dB at this node in dBm, if applicable.
+    pub output_p1db_dbm: Option<f64>,
 }
 
 impl fmt::Display for SignalNode {
@@ -134,6 +151,7 @@ impl SignalNode {
     /// let nsd = node.noise_spectral_density();
     /// assert!(nsd < -140.0); // well below signal levels
     /// ```
+    #[must_use]
     pub fn noise_spectral_density(&self) -> f64 {
         let noise_spectral_density_dbm_per_hz =
             self.noise_power_dbm - self.signal_bandwidth_hz.log10() * 10.0;
@@ -166,6 +184,7 @@ impl SignalNode {
     /// let snr = node.signal_to_noise_ratio_db();
     /// assert!(snr > 50.0);
     /// ```
+    #[must_use]
     pub fn signal_to_noise_ratio_db(&self) -> f64 {
         let signal_to_noise_ratio_db = self.signal_power_dbm - self.noise_power_dbm;
 
@@ -201,6 +220,7 @@ impl SignalNode {
     /// let after_atten = after_lna.cascade_block(&atten);
     /// assert_eq!(after_atten.signal_power_dbm, -6.0); // -30 + 30 - 6
     /// ```
+    #[must_use]
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
         #[cfg(feature = "debug-print")]
         println!("START NODE Cascade_block");
@@ -365,6 +385,7 @@ impl SignalNode {
     /// let nf = node.noise_factor();
     /// assert!((nf - 2.0).abs() < 0.01); // 3 dB ≈ factor 2
     /// ```
+    #[must_use]
     pub fn noise_factor(&self) -> f64 {
         rfconversions::noise::noise_factor_from_noise_figure(self.cumulative_noise_figure_db)
     }
@@ -388,6 +409,7 @@ impl SignalNode {
     /// let temp = node.noise_temperature();
     /// assert!(temp > 200.0 && temp < 400.0); // ~290 K for 3 dB NF
     /// ```
+    #[must_use]
     pub fn noise_temperature(&self) -> f64 {
         rfconversions::noise::noise_temperature_from_noise_figure(self.cumulative_noise_figure_db)
     }
@@ -415,6 +437,7 @@ impl SignalNode {
     /// let dr = node.dynamic_range_db().unwrap();
     /// assert!(dr > 90.0);
     /// ```
+    #[must_use]
     pub fn dynamic_range_db(&self) -> Option<f64> {
         let p1db = self.output_p1db_dbm?;
         Some(p1db - self.noise_power_dbm)
@@ -442,6 +465,7 @@ impl SignalNode {
     /// assert!(summary.linear_dr_db > 90.0);
     /// assert!(summary.sfdr_db.is_some());
     /// ```
+    #[must_use]
     pub fn dynamic_range_summary(&self) -> Option<DynamicRange> {
         let output_p1db = self.output_p1db_dbm?;
         let linear_dr_db = output_p1db - self.noise_power_dbm;

@@ -3,7 +3,7 @@
 //! These tests model actual satellite ground terminal receiver chains
 //! and verify cascaded gain, noise figure, P1dB, and dynamic range.
 
-use gainlineup::{Block, Input, cascade_vector_return_output, cascade_vector_return_vector};
+use gainlineup::{cascade_vector_return_output, cascade_vector_return_vector, Block, Input};
 
 /// Helper: assert float equality within tolerance
 fn assert_approx(actual: f64, expected: f64, tol: f64, msg: &str) {
@@ -21,9 +21,9 @@ fn assert_approx(actual: f64, expected: f64, tol: f64, msg: &str) {
 #[test]
 fn ka_band_leo_receive_chain() {
     let input = Input::new(
-        26.5e9,   // Ka-band downlink (Hz)
-        500.0e6,  // 500 MHz bandwidth
-        -80.0,    // Received signal power (dBm)
+        26.5e9,     // Ka-band downlink (Hz)
+        500.0e6,    // 500 MHz bandwidth
+        -80.0,      // Received signal power (dBm)
         Some(75.0), // Antenna noise temperature (K) — cold sky
     );
 
@@ -74,10 +74,16 @@ fn ka_band_leo_receive_chain() {
     assert_approx(output.signal_power_dbm, -19.0, 0.01, "Output signal");
 
     // System NF should be close to LNA NF (Friis: first stage dominates)
-    assert!(output.cumulative_noise_figure_db < 1.5,
-        "System NF should be LNA-dominated, got {:.2}", output.cumulative_noise_figure_db);
-    assert!(output.cumulative_noise_figure_db > 1.2,
-        "System NF must be >= LNA NF, got {:.2}", output.cumulative_noise_figure_db);
+    assert!(
+        output.cumulative_noise_figure_db < 1.5,
+        "System NF should be LNA-dominated, got {:.2}",
+        output.cumulative_noise_figure_db
+    );
+    assert!(
+        output.cumulative_noise_figure_db > 1.2,
+        "System NF must be >= LNA NF, got {:.2}",
+        output.cumulative_noise_figure_db
+    );
 }
 
 /// Two-stage LNA test: verify that adding a second LNA stage
@@ -178,14 +184,23 @@ fn signal_headroom_check() {
     // Expected signals: -50+25=-25, -25+20=-5, -5-5=-10
     let expected_signals = [-25.0, -5.0, -10.0];
     for (i, node) in nodes.iter().enumerate() {
-        assert_approx(node.signal_power_dbm, expected_signals[i], 0.01,
-            &format!("Node {} signal", i));
+        assert_approx(
+            node.signal_power_dbm,
+            expected_signals[i],
+            0.01,
+            &format!("Node {} signal", i),
+        );
 
         if let Some(p1db) = node.output_p1db_dbm {
             let headroom = p1db - node.signal_power_dbm;
-            assert!(headroom > 10.0,
+            assert!(
+                headroom > 10.0,
                 "Node {} has only {:.1} dB headroom (signal={:.1}, P1dB={:.1})",
-                i, headroom, node.signal_power_dbm, p1db);
+                i,
+                headroom,
+                node.signal_power_dbm,
+                p1db
+            );
         }
     }
 }
@@ -196,19 +211,22 @@ fn signal_headroom_check() {
 fn passive_attenuator_nf_equals_loss() {
     let input = Input::new(1.0e9, 1.0e6, -20.0, None);
 
-    let blocks = vec![
-        Block {
-            name: "6dB Pad".to_string(),
-            gain_db: -6.0,
-            noise_figure_db: 6.0,
-            output_p1db_dbm: None,
-            output_ip3_dbm: None,
-        },
-    ];
+    let blocks = vec![Block {
+        name: "6dB Pad".to_string(),
+        gain_db: -6.0,
+        noise_figure_db: 6.0,
+        output_p1db_dbm: None,
+        output_ip3_dbm: None,
+    }];
 
     let output = cascade_vector_return_output(input, blocks);
     assert_approx(output.signal_power_dbm, -26.0, 0.01, "Signal after 6dB pad");
-    assert_approx(output.cumulative_noise_figure_db, 6.0, 0.01, "NF of passive = loss");
+    assert_approx(
+        output.cumulative_noise_figure_db,
+        6.0,
+        0.01,
+        "NF of passive = loss",
+    );
     assert_approx(output.cumulative_gain_db, -6.0, 0.01, "Gain = -6 dB");
 }
 
@@ -217,9 +235,9 @@ fn passive_attenuator_nf_equals_loss() {
 #[test]
 fn ku_band_vsat_link_closes() {
     let input = Input::new(
-        12.25e9,   // Ku-band downlink
-        36.0e6,    // 36 MHz transponder
-        -85.0,     // Weak signal at antenna port
+        12.25e9,    // Ku-band downlink
+        36.0e6,     // 36 MHz transponder
+        -85.0,      // Weak signal at antenna port
         Some(50.0), // Good clear-sky antenna temp
     );
 
@@ -256,10 +274,16 @@ fn ku_band_vsat_link_closes() {
     assert_approx(output.signal_power_dbm, -15.0, 0.01, "VSAT output signal");
 
     // SNR should be positive (link closes)
-    assert!(output.signal_to_noise_ratio_db() > 0.0,
-        "VSAT link should close, SNR = {:.1} dB", output.signal_to_noise_ratio_db());
+    assert!(
+        output.signal_to_noise_ratio_db() > 0.0,
+        "VSAT link should close, SNR = {:.1} dB",
+        output.signal_to_noise_ratio_db()
+    );
 
     // System NF dominated by LNB
-    assert!(output.cumulative_noise_figure_db < 1.0,
-        "System NF should be LNB-dominated, got {:.2} dB", output.cumulative_noise_figure_db);
+    assert!(
+        output.cumulative_noise_figure_db < 1.0,
+        "System NF should be LNB-dominated, got {:.2} dB",
+        output.cumulative_noise_figure_db
+    );
 }

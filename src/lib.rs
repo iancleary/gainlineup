@@ -1,6 +1,36 @@
+#![warn(missing_docs)]
+//! # gainlineup
+//!
+//! A gain lineup toolbox for RF cascade analysis and signal chain modeling.
+//!
+//! This crate provides types and functions for computing cascaded gain, noise figure,
+//! IP3, dynamic range, and compression through a chain of RF blocks (amplifiers,
+//! attenuators, filters, mixers, etc.).
+//!
+//! # Quick Start
+//!
+//! ```
+//! use gainlineup::{Input, Block, cascade_vector_return_output};
+//!
+//! let input = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+//! let blocks = vec![
+//!     Block {
+//!         name: "LNA".to_string(),
+//!         gain_db: 30.0,
+//!         noise_figure_db: 1.5,
+//!         output_p1db_dbm: None,
+//!         output_ip3_dbm: None,
+//!     },
+//! ];
+//! let output = cascade_vector_return_output(input, blocks);
+//! assert_eq!(output.signal_power_dbm, 0.0);
+//! ```
+
 mod block;
 
+/// Command-line interface for the gainlineup tool.
 #[cfg(feature = "cli")]
+#[allow(missing_docs)]
 pub mod cli;
 mod constants;
 mod file_operations;
@@ -46,6 +76,10 @@ pub use node::{DynamicRange, SignalNode};
 /// assert_eq!(output.signal_power_dbm, -6.0); // -30 + 30 - 6
 /// assert_eq!(output.cumulative_gain_db, 24.0);
 /// ```
+#[doc(alias = "cascade")]
+#[doc(alias = "signal chain")]
+#[doc(alias = "gain lineup")]
+#[must_use]
 pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalNode {
     let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
 
@@ -89,6 +123,9 @@ pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalN
 /// assert_eq!(nodes[0].signal_power_dbm, 0.0);  // after LNA
 /// assert_eq!(nodes[1].signal_power_dbm, -3.0);  // after filter
 /// ```
+#[doc(alias = "cascade")]
+#[doc(alias = "signal chain")]
+#[must_use]
 pub fn cascade_vector_return_vector(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
     let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
 
@@ -128,6 +165,9 @@ pub fn cascade_vector_return_vector(input: Input, blocks: Vec<Block>) -> Vec<Sig
 /// assert_eq!(sweep.len(), 3);
 /// assert!((sweep[0].1 - (-20.0)).abs() < 0.01); // -40 + 20 = -20 (linear)
 /// ```
+#[doc(alias = "P1dB")]
+#[doc(alias = "compression")]
+#[must_use]
 pub fn cascade_am_am_sweep(
     blocks: &[Block],
     start_dbm: f64,
@@ -174,6 +214,8 @@ pub fn cascade_am_am_sweep(
 /// assert!((sweep[0].1 - 20.0).abs() < 0.01); // full gain at low power
 /// assert!(sweep.last().unwrap().1 < 20.0);    // compressed at high power
 /// ```
+#[doc(alias = "gain compression")]
+#[must_use]
 pub fn cascade_gain_compression_sweep(
     blocks: &[Block],
     start_dbm: f64,
