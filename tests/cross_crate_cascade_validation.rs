@@ -4,9 +4,7 @@
 //! produces results consistent with rfconversions' standalone `cascade_noise_figure`
 //! function.
 //!
-//! **Known bug (issue #55):** `cascade_block` uses an incorrect Friis denominator
-//! (adds current stage gain instead of using only previous cumulative gain).
-//! Tests affected by this bug are marked `#[ignore]` until the fix lands.
+//! Bug #55 (incorrect Friis denominator) has been fixed. All tests now pass.
 
 use gainlineup::{cascade_vector_return_output, cascade_vector_return_vector, Block, Input};
 use rfconversions::noise::cascade_noise_figure;
@@ -58,7 +56,7 @@ fn two_stage_lna_mixer_nf_consistency() {
     assert_approx(
         output.cumulative_noise_figure_db,
         expected_nf,
-        0.05, // relaxed tolerance due to issue #55 denominator bug
+        0.01,
         "Two-stage cascade NF",
     );
 }
@@ -88,15 +86,13 @@ fn four_stage_rx_chain_nf() {
     assert_approx(
         output.cumulative_noise_figure_db,
         expected_nf,
-        0.05, // relaxed tolerance — high first-stage gain masks the bug
+        0.01,
         "Four-stage cascade NF",
     );
 }
 
 /// Passive-only chain (attenuators): NF should equal total loss.
-/// IGNORED: issue #55 — denominator bug causes significant error for low-gain chains.
 #[test]
-#[ignore = "issue #55: Friis denominator bug causes ~1.6 dB error on passive chains"]
 fn passive_chain_nf_equals_loss() {
     let losses = [3.0, 1.0, 2.0];
     let total_loss: f64 = losses.iter().sum();
@@ -134,9 +130,7 @@ fn passive_chain_nf_equals_loss() {
 }
 
 /// Vector cascade: verify each intermediate node's NF matches rfconversions.
-/// IGNORED: issue #55 — intermediate NF diverges at stages with low cumulative gain.
 #[test]
-#[ignore = "issue #55: Friis denominator bug causes divergence at low-gain stages"]
 fn vector_cascade_intermediate_nf_consistency() {
     let nfs = [2.0, 6.0, 10.0, 3.0];
     let gains = [20.0, -8.0, 15.0, 10.0];
