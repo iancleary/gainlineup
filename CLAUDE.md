@@ -2,12 +2,12 @@
 
 ## Overview
 
-Rust crate for RF signal chain (gain lineup) cascade analysis. Models amplifiers, filters, attenuators, and mixers — cascading gain, noise figure (Friis equation), P1dB compression, IP3/IMD3, and dynamic range. Published on crates.io (v0.19.0).
+Rust crate for RF signal chain (gain lineup) cascade analysis. Models amplifiers, filters, attenuators, and mixers — cascading gain, noise figure (Friis equation), P1dB compression, IP3/IMD3, and dynamic range. Published on crates.io (v0.21.0).
 
 ## Commands
 
 ```bash
-cargo test                        # Run all 96+ tests
+cargo test                        # Run all 80 tests
 cargo clippy -- -D warnings       # Lint
 cargo fmt -- --check              # Format check
 cargo run -- files/wideband.toml  # CLI: cascade from TOML, generates HTML
@@ -24,6 +24,8 @@ cargo doc --open                  # Generate and view API docs
 | `amplifier_model` | `src/amplifier_model.rs` | `AmplifierModel` — wraps Block with AM-PM characterization |
 | `constants` | `src/constants.rs` | Physical constants (kB, T0) |
 | `cli` | `src/cli.rs` | CLI: reads TOML, runs cascade, generates HTML output |
+| `file_operations` | `src/file_operations.rs` | File I/O utilities |
+| `open` | `src/open.rs` | Cross-platform file/URL opening |
 | `plot` | `src/plot.rs` | HTML table/plot generation (behind `plot` feature) |
 
 ## Key Public Functions
