@@ -233,9 +233,8 @@ impl SignalNode {
         let block_noise_temperature =
             rfconversions::noise::noise_temperature_from_noise_factor(block_noise_factor);
 
-        let stage_gain_linear = rfconversions::power::db_to_linear(block.gain_db);
         let cumulative_gain_linear =
-            rfconversions::power::db_to_linear(self.cumulative_gain_db) + stage_gain_linear;
+            rfconversions::power::db_to_linear(self.cumulative_gain_db);
 
         // handle compression point
         // this is a simplification in that you can compress the block with noise
@@ -514,7 +513,7 @@ mod tests {
 
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_noise_figure * 1e3).round() / 1e3;
-        assert_eq!(rounded_noise_figure, 5.262);
+        assert_eq!(rounded_noise_figure, 7.263);
         assert_eq!(output_node.signal_frequency_hz, 1.0e9);
         assert_eq!(output_node.signal_bandwidth_hz, 1.0e6);
     }
@@ -552,7 +551,7 @@ mod tests {
 
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_noise_figure * 1e3).round() / 1e3;
-        assert_eq!(rounded_noise_figure, 5.001);
+        assert_eq!(rounded_noise_figure, 6.188);
         assert_eq!(output_node.signal_frequency_hz, 1.0e9);
         assert_eq!(output_node.signal_bandwidth_hz, 1.0e6);
     }
@@ -602,7 +601,7 @@ mod tests {
 
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_noise_figure * 1e3).round() / 1e3;
-        assert_eq!(rounded_noise_figure, 5.005);
+        assert_eq!(rounded_noise_figure, 6.191);
         assert_eq!(output_node.signal_frequency_hz, 1.0e9);
         assert_eq!(output_node.signal_bandwidth_hz, 1.0e6);
     }
@@ -708,8 +707,8 @@ mod tests {
         // 2. Verify output node has the expected default temperature
         if let Some(temp) = output_node.cumulative_noise_temperature {
             assert!(
-                (temp - 296.2387337).abs() < 0.001,
-                "Expected default cumulative noise temperature of ~296.2387337 K, got {} K",
+                (temp - 558.626071).abs() < 0.001,
+                "Expected default cumulative noise temperature of ~558.626071 K, got {} K",
                 temp
             );
         } else {
@@ -763,8 +762,8 @@ mod tests {
         // 2. Verify output node has the expected default temperature
         if let Some(temp) = output_node.cumulative_noise_temperature {
             assert!(
-                (temp - 960.951599).abs() < 0.001,
-                "Expected default cumulative noise temperature of ~960.951599 K, got {} K",
+                (temp - 1134.510795).abs() < 0.001,
+                "Expected default cumulative noise temperature of ~1134.510795 K, got {} K",
                 temp
             );
         } else {

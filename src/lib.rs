@@ -413,6 +413,6 @@ mod tests {
 
         // round to 3 decimal places for comparison, because floating point math is not exact
         let rounded_noise_figure = (output_node.cumulative_noise_figure_db * 1e3).round() / 1e3;
-        assert_eq!(rounded_noise_figure, 3.008);
+        assert_eq!(rounded_noise_figure, 3.015);
     }
 }
