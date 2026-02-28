@@ -355,4 +355,151 @@ mod tests {
         assert_eq!(signal_node.signal_frequency_hz, 1.0e9);
         assert_eq!(signal_node.signal_bandwidth_hz, 1.0e6);
     }
+
+    #[test]
+    fn test_default() {
+        let input = Input::default();
+        assert_eq!(input.frequency_hz, 0.0);
+        assert_eq!(input.bandwidth_hz, 100.0);
+        assert_eq!(input.power_dbm, 0.0);
+        assert_eq!(input.noise_temperature_k, None);
+    }
+
+    #[test]
+    fn test_display() {
+        let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+        let s = format!("{}", input);
+        assert!(s.contains("1000000000")); // frequency
+        assert!(s.contains("1000000")); // bandwidth
+        assert!(s.contains("-30")); // power
+    }
+
+    #[test]
+    fn test_noise_spectral_density_at_290k() {
+        // At 290 K, NSD should be approximately -174 dBm/Hz
+        let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+        let nsd = input.noise_spectral_density();
+        assert!(
+            (nsd - (-174.0)).abs() < 0.1,
+            "NSD at 290K should be ~-174 dBm/Hz, got {}",
+            nsd
+        );
+    }
+
+    #[test]
+    fn test_noise_spectral_density_defaults_to_270k() {
+        // None temperature should default to 270 K
+        let input = Input::new(1.0e9, 1.0e6, -30.0, None);
+        let nsd = input.noise_spectral_density();
+        // kT at 270K: 10*log10(1.38e-23 * 270) + 30 ≈ -174.32 dBm/Hz
+        assert!(
+            (nsd - (-174.32)).abs() < 0.1,
+            "NSD at 270K should be ~-174.32 dBm/Hz, got {}",
+            nsd
+        );
+    }
+
+    #[test]
+    fn test_noise_power_at_standard_conditions() {
+        // At 290K, 1 MHz BW: kTB = -174 + 60 = -114 dBm
+        let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+        let np = input.noise_power();
+        assert!(
+            (np - (-114.0)).abs() < 0.1,
+            "Noise power at 290K/1MHz should be ~-114 dBm, got {}",
+            np
+        );
+    }
+
+    #[test]
+    fn test_noise_power_scales_with_bandwidth() {
+        // Doubling bandwidth adds 3 dB to noise power
+        let input_1mhz = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+        let input_2mhz = Input::new(1.0e9, 2.0e6, -30.0, Some(290.0));
+        let diff = input_2mhz.noise_power() - input_1mhz.noise_power();
+        assert!(
+            (diff - 3.01).abs() < 0.1,
+            "Doubling BW should add ~3 dB, got {} dB difference",
+            diff
+        );
+    }
+
+    #[test]
+    fn test_cascade_block_with_explicit_noise_temperature() {
+        // Verify that providing Some(290.0) uses 290K not 270K default
+        let input_290 = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+        let input_270 = Input::new(1.0e9, 1.0e6, -30.0, Some(270.0));
+
+        let block = Block {
+            name: "LNA".to_string(),
+            gain_db: 20.0,
+            noise_figure_db: 2.0,
+            output_p1db_dbm: None,
+            output_ip3_dbm: None,
+        };
+
+        let node_290 = input_290.cascade_block(&block);
+        let node_270 = input_270.cascade_block(&block);
+
+        // Higher input temperature → higher cumulative noise temperature
+        assert!(
+            node_290.cumulative_noise_temperature.unwrap()
+                > node_270.cumulative_noise_temperature.unwrap(),
+            "290K input should produce higher cumulative noise temp than 270K"
+        );
+    }
+
+    #[test]
+    fn test_cascade_block_with_ip3() {
+        let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+        let block = Block {
+            name: "LNA".to_string(),
+            gain_db: 20.0,
+            noise_figure_db: 2.0,
+            output_p1db_dbm: Some(10.0),
+            output_ip3_dbm: Some(25.0),
+        };
+        let node = input.cascade_block(&block);
+
+        // OIP3 should pass through from block
+        assert_eq!(node.cumulative_oip3_dbm, Some(25.0));
+        // SFDR should be calculated
+        assert!(node.sfdr_db.is_some());
+        assert!(node.sfdr_db.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn test_cascade_block_no_ip3_means_no_sfdr() {
+        let input = Input::new(1.0e9, 1.0e6, -30.0, Some(290.0));
+        let block = Block {
+            name: "Filter".to_string(),
+            gain_db: -3.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
+            output_ip3_dbm: None,
+        };
+        let node = input.cascade_block(&block);
+
+        assert_eq!(node.cumulative_oip3_dbm, None);
+        assert_eq!(node.sfdr_db, None);
+    }
+
+    #[test]
+    fn test_cascade_block_attenuator() {
+        // A passive attenuator: gain = -10 dB, NF = 10 dB (matched)
+        let input = Input::new(1.0e9, 1.0e6, -20.0, Some(290.0));
+        let atten = Block {
+            name: "10dB Pad".to_string(),
+            gain_db: -10.0,
+            noise_figure_db: 10.0,
+            output_p1db_dbm: None,
+            output_ip3_dbm: None,
+        };
+        let node = input.cascade_block(&atten);
+
+        // Signal: -20 + (-10) = -30 dBm
+        assert!((node.signal_power_dbm - (-30.0)).abs() < 0.01);
+        assert!((node.cumulative_gain_db - (-10.0)).abs() < 0.01);
+        assert!((node.cumulative_noise_figure_db - 10.0).abs() < 0.01);
+    }
 }
