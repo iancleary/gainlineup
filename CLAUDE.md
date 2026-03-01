@@ -7,7 +7,7 @@ Rust crate for RF signal chain (gain lineup) cascade analysis. Models amplifiers
 ## Commands
 
 ```bash
-cargo test                        # Run all 80 tests
+cargo test                        # Run all 172 tests
 cargo clippy -- -D warnings       # Lint
 cargo fmt -- --check              # Format check
 cargo run -- files/wideband.toml  # CLI: cascade from TOML, generates HTML
