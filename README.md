@@ -514,16 +514,40 @@ The CLI generates an HTML visualization of the cascade:
 
 ---
 
-## Features
+## Diagnostics (Tracing)
 
-### Debug Output
+`gainlineup` uses [`tracing`](https://docs.rs/tracing) for structured, runtime-controllable diagnostics. Set the `RUST_LOG` environment variable to see intermediate cascade calculations:
 
-Enable verbose debug printing during cascade calculations:
+```bash
+# See cascade math: noise power, signal power, compression at each stage
+RUST_LOG=gainlineup=debug gainlineup config.toml
 
-```toml
-[dependencies]
-gainlineup = { version = "0.18.0", features = ["debug-print"] }
+# See everything including config file content
+RUST_LOG=gainlineup=trace gainlineup config.toml
+
+# Combine with dependency crates (e.g. touchstone file parsing)
+RUST_LOG=gainlineup=debug,touchstone=debug gainlineup config.toml
+
+# Only warnings and errors (quiet mode)
+RUST_LOG=gainlineup=warn gainlineup config.toml
 ```
+
+### Using tracing in your own application
+
+If you use `gainlineup` as a library, install any `tracing` subscriber in your application to capture events:
+
+```rust
+use tracing_subscriber::EnvFilter;
+
+tracing_subscriber::fmt()
+    .with_env_filter(EnvFilter::from_default_env())
+    .init();
+
+// Now all gainlineup tracing events will be captured
+let node = input.cascade_block(&lna);
+```
+
+Without a subscriber installed, all tracing calls are zero-cost no-ops.
 
 ---
 

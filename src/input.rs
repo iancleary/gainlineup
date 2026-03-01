@@ -104,14 +104,14 @@ impl Input {
         let t = self.noise_temperature_k.unwrap_or(270.0);
         let noise_spectral_density = k * t;
 
-        #[cfg(feature = "debug-print")]
-        println!("Noise Spectral Density: (W/Hz) {}", noise_spectral_density);
+        
+        tracing::debug!("Noise Spectral Density: (W/Hz) {}", noise_spectral_density);
 
         let noise_spectral_density_dbm_per_hz =
             rfconversions::power::watts_to_dbm(noise_spectral_density);
 
-        #[cfg(feature = "debug-print")]
-        println!(
+        
+        tracing::debug!(
             "Noise Spectral Density: (dBm/Hz) {}",
             noise_spectral_density_dbm_per_hz
         );
@@ -137,13 +137,13 @@ impl Input {
         let t = self.noise_temperature_k.unwrap_or(270.0);
         let noise_power = k * t * self.bandwidth_hz;
 
-        #[cfg(feature = "debug-print")]
-        println!("Noise Power: (W) {}", noise_power);
+        
+        tracing::debug!("Noise Power: (W) {}", noise_power);
 
         let noise_power_dbm = rfconversions::power::watts_to_dbm(noise_power);
 
-        #[cfg(feature = "debug-print")]
-        println!("Noise Power: (dBm) {}", noise_power_dbm);
+        
+        tracing::debug!("Noise Power: (dBm) {}", noise_power_dbm);
 
         noise_power_dbm
     }
@@ -169,8 +169,8 @@ impl Input {
     /// ```
     #[must_use]
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
-        #[cfg(feature = "debug-print")]
-        println!("Start INPUT");
+        
+        tracing::debug!("Start INPUT");
 
         let output_node_name = block.name.clone() + " Output";
 
@@ -210,21 +210,21 @@ impl Input {
 
         let input_noise_power = self.noise_power();
 
-        #[cfg(feature = "debug-print")]
-        println!("Input Noise Power: (dBm) {}", input_noise_power);
+        
+        tracing::debug!("Input Noise Power: (dBm) {}", input_noise_power);
 
         let output_noise_power_from_input_dbm = input_noise_power + stage_power_gain_db;
 
         let output_noise_power_from_block_dbm = block.output_noise_power(self.bandwidth_hz);
 
-        #[cfg(feature = "debug-print")]
-        println!(
+        
+        tracing::debug!(
             "Output Noise Power from Input: (dBm) {}",
             output_noise_power_from_input_dbm
         );
 
-        #[cfg(feature = "debug-print")]
-        println!(
+        
+        tracing::debug!(
             "Output Noise Power from Block: (dBm) {}",
             output_noise_power_from_block_dbm
         );
@@ -238,8 +238,8 @@ impl Input {
         let total_noise_power_at_output_watts =
             output_noise_power_from_input_watts + output_noise_power_from_block_watts;
 
-        #[cfg(feature = "debug-print")]
-        println!(
+        
+        tracing::debug!(
             "Total Noise Power at Output: (W) {}",
             total_noise_power_at_output_watts
         );
@@ -247,14 +247,14 @@ impl Input {
         let output_noise_power_at_output_dbm =
             rfconversions::power::watts_to_dbm(total_noise_power_at_output_watts);
 
-        #[cfg(feature = "debug-print")]
-        println!(
+        
+        tracing::debug!(
             "Output Noise Power at Output: (dBm) {}",
             output_noise_power_at_output_dbm
         );
 
-        #[cfg(feature = "debug-print")]
-        println!("End INPUT");
+        
+        tracing::debug!("End INPUT");
 
         // OIP3: first block in chain, just use block's OIP3
         let cumulative_oip3_dbm = block.output_ip3_dbm;

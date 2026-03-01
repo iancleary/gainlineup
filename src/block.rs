@@ -162,21 +162,21 @@ impl Block {
     /// ```
     #[must_use]
     pub fn output_noise_power(&self, bandwidth: f64) -> f64 {
-        #[cfg(feature = "debug-print")]
-        println!("START BLOCK output_noise_power");
+        
+        tracing::debug!("START BLOCK output_noise_power");
 
         let input_noise_power = self.input_noise_power(bandwidth);
 
-        #[cfg(feature = "debug-print")]
-        println!(
+        
+        tracing::debug!(
             "Input Noise Power (block.input_noise_power): (dBm) {}",
             input_noise_power
         );
 
         let output_noise_power_without_compression = input_noise_power + self.gain_db;
 
-        #[cfg(feature = "debug-print")]
-        println!(
+        
+        tracing::debug!(
             "Output Noise Power without compression: (dBm) {}",
             output_noise_power_without_compression
         );
@@ -191,16 +191,16 @@ impl Block {
             output_noise_power_without_compression
         };
 
-        #[cfg(feature = "debug-print")]
+        
         let noise_power_gain = output_noise_power_dbm - input_noise_power;
-        #[cfg(feature = "debug-print")]
-        println!("Noise Power Gain: (dB) {}", noise_power_gain);
+        
+        tracing::debug!("Noise Power Gain: (dB) {}", noise_power_gain);
 
-        #[cfg(feature = "debug-print")]
-        println!("Output Noise Power: (dBm) {}", output_noise_power_dbm);
+        
+        tracing::debug!("Output Noise Power: (dBm) {}", output_noise_power_dbm);
 
-        #[cfg(feature = "debug-print")]
-        println!("END BLOCK output_noise_power");
+        
+        tracing::debug!("END BLOCK output_noise_power");
 
         output_noise_power_dbm
     }
