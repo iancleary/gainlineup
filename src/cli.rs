@@ -61,10 +61,9 @@ enum BlockConfig {
 }
 
 pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
-    // println!("\n----------------------------\n");
-    // println!("Loading Config: {}", path);
+    tracing::debug!("Loading config: {}", path);
     let config_content = fs::read_to_string(path)?;
-    // println!("Config Content: {}", config_content);
+    tracing::trace!("Config content: {}", config_content);
 
     // We need an intermediate struct to parse the TOML because Config now holds Vec<Block>
     // but the TOML contains BlockConfigs
@@ -82,7 +81,7 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     }
 
     let intermediate_config: IntermediateConfig = toml::from_str(&config_content)?;
-    // println!("Config: {:#?}", config);
+    tracing::debug!("Parsed config successfully");
 
     let mut blocks = Vec::new();
     let config_path = Path::new(path);
@@ -95,7 +94,7 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
         base_dir,
     )?;
 
-    // println!("\n----------------------------\n");
+    
 
     Ok(Config {
         input_power_dbm: intermediate_config.input_power_dbm,
@@ -171,7 +170,7 @@ fn load_blocks_recursive(
             }
             BlockConfig::Include { path } => {
                 let included_path = base_dir.join(&path);
-                // println!("Loading Included Config: {}", included_path.display());
+                tracing::debug!("Loading included config: {}", included_path.display());
                 let content = fs::read_to_string(&included_path)?;
                 let included: IncludedConfig = toml::from_str(&content)?;
 
@@ -272,7 +271,7 @@ impl Command {
 
         match load_config(&full_path_to_config.display().to_string()) {
             Ok(config) => {
-                // println!("\n----------------------------\n");
+                
 
                 let input = Input {
                     power_dbm: config.input_power_dbm,
@@ -281,7 +280,7 @@ impl Command {
                     noise_temperature_k: Some(config.noise_temperature_k.unwrap_or(290.0)), // 290K is standard
                 };
                 let cascade = calculate_gainlineup(input.clone(), config.blocks.clone());
-                // println!("\n----------------------------\n");
+                
                 print_cascade(cascade.clone(), config.blocks.clone());
 
                 let file_path = full_path_to_config.display().to_string();
@@ -377,7 +376,7 @@ pub fn print_help() {
     println!();
     println!("     The toml file is parsed and an interactive plot (html file and js/ folder) ");
     println!("     is created next to the source file(s).");
-    // println!("     ");
+    
     println!();
     println!("{}{}OPTIONS:{}", BOLD, YELLOW, RESET);
     println!(
