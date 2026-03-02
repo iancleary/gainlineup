@@ -81,6 +81,11 @@ pub use node::{DynamicRange, SignalNode};
 #[doc(alias = "gain lineup")]
 #[must_use]
 pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalNode {
+    tracing::debug!(
+        num_blocks = blocks.len(),
+        input_power_dbm = input.power_dbm,
+        "Starting cascade"
+    );
     let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
 
     for (i, block) in blocks.iter().enumerate() {
@@ -89,8 +94,22 @@ pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalN
         } else {
             cascading_signal = cascading_signal.cascade_block(block);
         }
+        tracing::trace!(
+            stage = i,
+            block = %block.name,
+            signal_dbm = cascading_signal.signal_power_dbm,
+            gain_db = cascading_signal.cumulative_gain_db,
+            nf_db = cascading_signal.cumulative_noise_figure_db,
+            "Stage output"
+        );
     }
 
+    tracing::debug!(
+        output_power_dbm = cascading_signal.signal_power_dbm,
+        cumulative_gain_db = cascading_signal.cumulative_gain_db,
+        cumulative_nf_db = cascading_signal.cumulative_noise_figure_db,
+        "Cascade complete"
+    );
     cascading_signal
 }
 
@@ -127,6 +146,11 @@ pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalN
 #[doc(alias = "signal chain")]
 #[must_use]
 pub fn cascade_vector_return_vector(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
+    tracing::debug!(
+        num_blocks = blocks.len(),
+        input_power_dbm = input.power_dbm,
+        "Starting cascade (vector output)"
+    );
     let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
 
     // initialize node vector without input node, since the signal nodes are created in the loop and start with the output of the first block
@@ -137,6 +161,14 @@ pub fn cascade_vector_return_vector(input: Input, blocks: Vec<Block>) -> Vec<Sig
         } else {
             cascading_signal = cascading_signal.cascade_block(block);
         }
+        tracing::trace!(
+            stage = i,
+            block = %block.name,
+            signal_dbm = cascading_signal.signal_power_dbm,
+            gain_db = cascading_signal.cumulative_gain_db,
+            nf_db = cascading_signal.cumulative_noise_figure_db,
+            "Stage output"
+        );
         node_vector.push(cascading_signal.clone());
     }
     node_vector
@@ -180,6 +212,14 @@ pub fn cascade_am_am_sweep(
         powers.push(pin);
         pin += step_db;
     }
+    tracing::debug!(
+        num_blocks = blocks.len(),
+        num_points = powers.len(),
+        start_dbm,
+        stop_dbm,
+        step_db,
+        "AM-AM sweep"
+    );
     powers
         .iter()
         .map(|&pin| {
