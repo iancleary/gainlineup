@@ -7,7 +7,7 @@ homepage = "https://github.com/iancleary/gainlineup"
 license = "MIT"
 name = "gainlineup"
 repository = "https://github.com/iancleary/gainlineup"
-version = "0.22.1"
+version = "0.22.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,7 +15,7 @@ version = "0.22.1"
 rfconversions = "0.7.0"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.9.8"
-touchstone = "0.12.0"
+touchstone = "0.12.1"
 tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"], optional = true }
 

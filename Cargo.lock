@@ -25,7 +25,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 
 [[package]]
 name = "gainlineup"
-version = "0.22.1"
+version = "0.22.2"
 dependencies = [
  "rfconversions",
  "serde",
@@ -255,9 +255,9 @@ checksum = "df8b2b54733674ad286d16267dcfc7a71ed5c776e4ac7aa3c3e2561f7c637bf2"
 
 [[package]]
 name = "touchstone"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b68a9b26dc3ef6528e9af1e0c416201c050e5376f5aa31ccdcbc365e9aba5a7"
+checksum = "6a449bac7699635fc6a9b54e599991f23fc10d6569295235812e5007bcf71b26"
 dependencies = [
  "rfconversions",
  "tracing",
