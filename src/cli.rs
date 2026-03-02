@@ -191,6 +191,7 @@ pub fn touchstone_file_path_and_frequency_to_struct(
     file_path: String,
     frequency_in_hz: f64,
 ) -> TouchstoneValid {
+    tracing::debug!("Loading touchstone file: {}", file_path);
     let s2p = Network::new(file_path.clone());
 
     // check if frequency is within the touchstone file
@@ -199,6 +200,10 @@ pub fn touchstone_file_path_and_frequency_to_struct(
     let contains_frequency = frequency_vector.contains(&frequency_in_hz);
 
     if !contains_frequency {
+        tracing::debug!(
+            frequency_hz = frequency_in_hz,
+            "Frequency not found in touchstone file"
+        );
         return TouchstoneValid {
             contains_frequency: false,
             gain: None,

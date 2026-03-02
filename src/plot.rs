@@ -27,6 +27,11 @@ pub fn generate_html_table(
     output_path_str: &str,
 ) -> Result<(), std::io::Error> {
     let path = Path::new(output_path_str);
+    tracing::debug!(
+        output_path = output_path_str,
+        num_stages = cascade.len(),
+        "Generating HTML table"
+    );
     let mut file = File::create(path)?;
 
     writeln!(file, "<!DOCTYPE html>")?;

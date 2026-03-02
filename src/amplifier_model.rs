@@ -231,10 +231,15 @@ impl<'a> AmplifierModel<'a> {
     pub fn phase_shift_at(&self, input_power_dbm: f64) -> Option<f64> {
         let coeff = self.am_pm_coefficient_deg_per_db?;
         let input_p1db = self.input_p1db_dbm()?;
-        // Phase shift relative to input P1dB: zero when well below, positive near/above
         let delta = input_power_dbm - input_p1db;
-        // Allow phase shift to go negative (deep backoff) but clamp at 0
         let phase = coeff * delta.max(0.0);
+        tracing::trace!(
+            input_power_dbm,
+            input_p1db,
+            delta,
+            phase_deg = phase,
+            "AM-PM phase shift"
+        );
         Some(phase)
     }
 
@@ -265,6 +270,13 @@ impl<'a> AmplifierModel<'a> {
         stop_dbm: f64,
         step_db: f64,
     ) -> Vec<AmplifierPoint> {
+        tracing::debug!(
+            block = %self.block.name,
+            start_dbm,
+            stop_dbm,
+            step_db,
+            "AM-AM/AM-PM sweep"
+        );
         let mut results = Vec::new();
         let mut pin = start_dbm;
         while pin <= stop_dbm + step_db * 0.01 {
@@ -321,7 +333,14 @@ impl<'a> AmplifierModel<'a> {
         // Backoff = P1dB_in - Pin = -(max_phase_deg / coeff)
         // Negative backoff means you can exceed P1dB; positive means you must stay below.
         let allowed_above_p1db = max_phase_deg / coeff;
-        Some(-allowed_above_p1db)
+        let backoff = -allowed_above_p1db;
+        tracing::debug!(
+            max_phase_deg,
+            coeff_deg_per_db = coeff,
+            backoff_db = backoff,
+            "Backoff for target phase"
+        );
+        Some(backoff)
     }
 
     /// EVM contribution from AM-PM distortion at a given input power.
