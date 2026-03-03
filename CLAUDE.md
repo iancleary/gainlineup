@@ -2,12 +2,12 @@
 
 ## Overview
 
-Rust crate for RF signal chain (gain lineup) cascade analysis. Models amplifiers, filters, attenuators, and mixers — cascading gain, noise figure (Friis equation), P1dB compression, IP3/IMD3, and dynamic range. Published on crates.io (v0.21.0).
+Rust crate for RF signal chain (gain lineup) cascade analysis. Models amplifiers, filters, attenuators, and mixers — cascading gain, noise figure (Friis equation), P1dB compression, IP3/IMD3, and dynamic range. Published on crates.io (v0.22.2).
 
 ## Commands
 
 ```bash
-cargo test                        # Run all 172 tests
+cargo test                        # Run all 90 tests
 cargo clippy -- -D warnings       # Lint
 cargo fmt -- --check              # Format check
 cargo run -- files/wideband.toml  # CLI: cascade from TOML, generates HTML
