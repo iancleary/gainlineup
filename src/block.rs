@@ -918,4 +918,49 @@ mod tests {
             "Noise should compress to P1dB + 1 dB when above threshold"
         );
     }
+
+    #[test]
+    fn display_block_minimal() {
+        let b = Block {
+            name: "Atten".to_string(),
+            gain_db: -6.0,
+            noise_figure_db: 6.0,
+            output_p1db_dbm: None,
+            output_ip3_dbm: None,
+        };
+        let s = format!("{}", b);
+        assert!(s.contains("Atten"));
+        assert!(s.contains("-6"));
+        assert!(!s.contains("output_p1db"));
+        assert!(!s.contains("output_ip3"));
+    }
+
+    #[test]
+    fn display_block_with_p1db_and_ip3() {
+        let b = Block {
+            name: "PA".to_string(),
+            gain_db: 20.0,
+            noise_figure_db: 5.0,
+            output_p1db_dbm: Some(30.0),
+            output_ip3_dbm: Some(45.0),
+        };
+        let s = format!("{}", b);
+        assert!(s.contains("output_p1db: 30 dBm"));
+        assert!(s.contains("output_ip3: 45 dBm"));
+    }
+
+    #[test]
+    fn display_imd3_point() {
+        let pt = super::Imd3Point {
+            input_per_tone_dbm: -10.0,
+            output_per_tone_dbm: 10.0,
+            im3_output_dbm: -30.0,
+            rejection_db: 40.0,
+        };
+        let s = format!("{}", pt);
+        assert!(s.contains("Pin: -10.0 dBm"));
+        assert!(s.contains("Pout: 10.0 dBm"));
+        assert!(s.contains("IM3: -30.0 dBm"));
+        assert!(s.contains("rejection: 40.0 dB"));
+    }
 }
