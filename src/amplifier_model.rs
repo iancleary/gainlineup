@@ -594,4 +594,38 @@ mod tests {
         assert_eq!(model.saturation_power_dbm, Some(25.0));
         assert!(model.am_pm_coefficient_deg_per_db.is_none());
     }
+
+    #[test]
+    fn display_amplifier_point_with_phase() {
+        let pt = AmplifierPoint {
+            input_dbm: -10.0,
+            output_dbm: 20.0,
+            gain_db: 30.0,
+            phase_shift_deg: Some(5.25),
+        };
+        let s = format!("{}", pt);
+        assert!(s.contains("Pin: -10.0 dBm"));
+        assert!(s.contains("Pout: 20.0 dBm"));
+        assert!(s.contains("Gain: 30.0 dB"));
+        assert!(s.contains("5.25°"));
+    }
+
+    #[test]
+    fn display_amplifier_point_without_phase() {
+        let pt = AmplifierPoint {
+            input_dbm: 0.0,
+            output_dbm: 15.0,
+            gain_db: 15.0,
+            phase_shift_deg: None,
+        };
+        let s = format!("{}", pt);
+        assert!(s.contains("N/A"));
+    }
+
+    #[test]
+    fn backoff_for_target_phase_zero_coeff() {
+        let block = test_block();
+        let model = AmplifierModel::with_am_pm(&block, 0.0);
+        assert!(model.backoff_for_target_phase(5.0).is_none());
+    }
 }
