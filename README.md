@@ -578,8 +578,9 @@ Run:
 
 ```bash
 cd examples/montecarlo-gain-target
+uv sync
 cargo run
-python3 plot_gain_margin.py
+uv run plot_gain_margin.py
 ```
 
 Output files:
