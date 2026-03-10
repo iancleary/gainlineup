@@ -1,0 +1,9 @@
+[project]
+name = "montecarlo-gain-target-plots"
+version = "0.1.0"
+description = "Plotting utilities for gainlineup Monte Carlo SNR margin example"
+requires-python = ">=3.10"
+dependencies = [
+  "matplotlib>=3.8",
+]
+

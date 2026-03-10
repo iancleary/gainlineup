@@ -556,3 +556,34 @@ Without a subscriber installed, all tracing calls are zero-cost no-ops.
 - Pozar, D. *Microwave Engineering* (4th ed.) — Friis equation, noise figure, IP3
 - Razavi, B. *RF Microelectronics* (2nd ed.) — dynamic range, SFDR, receiver design
 - [Noise Figure — Wikipedia](https://en.wikipedia.org/wiki/Noise_figure)
+
+---
+
+## Optional: Monte Carlo SNR Margin Example (examples crate)
+
+This repo includes an optional standalone example crate for Monte Carlo analysis of
+cascade SNR margin using `montycarlo`.
+
+Path:
+- `examples/montecarlo-gain-target/`
+
+What it does:
+- Builds a 3-block cascade lineup with `gainlineup`
+- Applies random variation to **gain + noise figure** of the first two blocks
+- Randomizes input signal power and input noise temperature
+- Computes output-node SNR margin vs a target
+- Writes CSV + summary text and a Python histogram/CDF plot
+
+Run:
+
+```bash
+cd examples/montecarlo-gain-target
+uv sync
+cargo run
+uv run plot_gain_margin.py
+```
+
+Output files:
+- `output/cascade_snr_margin_samples.csv`
+- `output/cascade_snr_margin_summary.txt`
+- `output/cascade_snr_margin_plots.png`

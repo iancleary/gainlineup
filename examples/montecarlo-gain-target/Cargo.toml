@@ -1,0 +1,11 @@
+[package]
+name = "montecarlo-cascade-snr-target"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+montycarlo = "0.1.0"
+rand = "0.8"
+
+gainlineup = { path = "../.." }
