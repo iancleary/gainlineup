@@ -10,9 +10,18 @@ Rust crate for RF signal chain (gain lineup) cascade analysis. Models amplifiers
 cargo test                        # Run all 96 tests (v0.22.2)
 cargo clippy -- -D warnings       # Lint
 cargo fmt -- --check              # Format check
+scripts/cut-release.sh --dry-run --version <semver> --notes-file <path>  # Preview release
 cargo run -- files/wideband.toml  # CLI: cascade from TOML, generates HTML
 cargo doc --open                  # Generate and view API docs
 ```
+
+## Releases
+
+Maintain the deterministic release workflow with `create-release-process`.
+Execute ordinary releases with `cut-release` via `scripts/cut-release.sh`; see
+`docs/release.md` for the repo-local contract. The runner requires an explicit
+SemVer `--version`, supports read-only version queries, and creates the GitHub
+release as the final public step of a real release.
 
 ## Module Map
 
