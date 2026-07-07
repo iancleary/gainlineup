@@ -25,16 +25,16 @@ test:
 build:
     cargo build
 
-# check documentation
-doc:
+# check documentation with rustdoc warnings denied
+doc-check:
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 
 # verify the crate can be packaged without publishing
 package:
-    cargo publish --dry-run
+    cargo package
 
 # format-check, lint, test, document, and package
-check: fmt-check lint test doc package
+check: fmt-check lint test doc-check package
 
 # run contributor checks and build
 ci: check build
