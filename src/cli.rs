@@ -94,8 +94,6 @@ pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
         base_dir,
     )?;
 
-    
-
     Ok(Config {
         input_power_dbm: intermediate_config.input_power_dbm,
         frequency_hz: intermediate_config.frequency_hz,
@@ -276,8 +274,6 @@ impl Command {
 
         match load_config(&full_path_to_config.display().to_string()) {
             Ok(config) => {
-                
-
                 let input = Input {
                     power_dbm: config.input_power_dbm,
                     frequency_hz: config.frequency_hz,
@@ -285,7 +281,7 @@ impl Command {
                     noise_temperature_k: Some(config.noise_temperature_k.unwrap_or(290.0)), // 290K is standard
                 };
                 let cascade = calculate_gainlineup(input.clone(), config.blocks.clone());
-                
+
                 print_cascade(cascade.clone(), config.blocks.clone());
 
                 let file_path = full_path_to_config.display().to_string();
@@ -381,7 +377,7 @@ pub fn print_help() {
     println!();
     println!("     The toml file is parsed and an interactive plot (html file and js/ folder) ");
     println!("     is created next to the source file(s).");
-    
+
     println!();
     println!("{}{}OPTIONS:{}", BOLD, YELLOW, RESET);
     println!(

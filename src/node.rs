@@ -156,7 +156,6 @@ impl SignalNode {
         let noise_spectral_density_dbm_per_hz =
             self.noise_power_dbm - self.signal_bandwidth_hz.log10() * 10.0;
 
-        
         tracing::debug!(
             "Noise Spectral Density: (dBm/Hz) {}",
             noise_spectral_density_dbm_per_hz
@@ -188,7 +187,6 @@ impl SignalNode {
     pub fn signal_to_noise_ratio_db(&self) -> f64 {
         let signal_to_noise_ratio_db = self.signal_power_dbm - self.noise_power_dbm;
 
-        
         tracing::debug!("Signal to Noise Ratio: (dB) {}", signal_to_noise_ratio_db);
 
         signal_to_noise_ratio_db
@@ -222,7 +220,6 @@ impl SignalNode {
     /// ```
     #[must_use]
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
-        
         tracing::debug!("START NODE Cascade_block");
 
         let output_node_name = block.name.clone() + " Output";
@@ -233,8 +230,7 @@ impl SignalNode {
         let block_noise_temperature =
             rfconversions::noise::noise_temperature_from_noise_factor(block_noise_factor);
 
-        let cumulative_gain_linear =
-            rfconversions::power::db_to_linear(self.cumulative_gain_db);
+        let cumulative_gain_linear = rfconversions::power::db_to_linear(self.cumulative_gain_db);
 
         // handle compression point
         // this is a simplification in that you can compress the block with noise
@@ -266,7 +262,6 @@ impl SignalNode {
 
         let input_noise_power_dbm = self.noise_power_dbm;
 
-        
         tracing::debug!("Input Noise Power: (dBm) {}", input_noise_power_dbm);
 
         // handle compression point separately (as they are separate signals)
@@ -285,13 +280,11 @@ impl SignalNode {
         // output noise power from block (independent of compression TODO: check this)
         let output_noise_power_from_block_dbm = block.output_noise_power(self.signal_bandwidth_hz);
 
-        
         tracing::debug!(
             "Output Noise Power from Node: (dBm) {}",
             output_noise_power_from_node_dbm
         );
 
-        
         tracing::debug!(
             "Output Noise Power from Block: (dBm) {}",
             output_noise_power_from_block_dbm
@@ -306,7 +299,6 @@ impl SignalNode {
         let total_noise_power_at_output_watts =
             output_noise_power_from_node_watts + output_noise_power_from_block_watts;
 
-        
         tracing::debug!(
             "Total Noise Power at Output: (W) {}",
             total_noise_power_at_output_watts
@@ -315,7 +307,6 @@ impl SignalNode {
         let total_noise_power_at_output_dbm =
             rfconversions::power::watts_to_dbm(total_noise_power_at_output_watts);
 
-        
         tracing::debug!(
             "Total Noise Power at Output: (dBm) {}",
             total_noise_power_at_output_dbm
@@ -326,7 +317,6 @@ impl SignalNode {
 
         // TODO: handle frequency and bandwidth changes, i.e. mixers, filters, etc.
 
-        
         tracing::debug!("END NODE Cascade_block");
 
         // Cascaded OIP3 calculation

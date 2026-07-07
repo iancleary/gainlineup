@@ -31,7 +31,7 @@ doc:
 
 # verify the crate can be packaged without publishing
 package:
-    cargo package --dry-run
+    cargo publish --dry-run
 
 # format-check, lint, test, document, and package
 check: fmt-check lint test doc package
