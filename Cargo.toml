@@ -4,9 +4,13 @@ description = "A Gain Lineup toolbox for RF Modeling"
 documentation = "https://docs.rs/gainlineup"
 edition = "2021"
 homepage = "https://github.com/iancleary/gainlineup"
+keywords = ["rf", "gain", "lineup", "microwave", "receiver"]
+categories = ["command-line-utilities", "science"]
 license = "MIT"
 name = "gainlineup"
+readme = "README.md"
 repository = "https://github.com/iancleary/gainlineup"
+rust-version = "1.85"
 version = "0.22.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
