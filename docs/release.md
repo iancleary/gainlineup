@@ -1,6 +1,7 @@
 # Release Process
 
 This repo has a deterministic local release runner at `scripts/cut-release.sh`.
+Use `just cut-release` as the normal entrypoint.
 
 ## Versioning
 
@@ -11,8 +12,8 @@ version explicitly with `--version`.
 Read-only queries:
 
 ```bash
-scripts/cut-release.sh --print-current-version
-scripts/cut-release.sh --print-next-version --version 0.22.3
+just cut-release --print-current-version
+just cut-release --print-next-version --version 0.22.3
 ```
 
 ## Dry Run
@@ -20,12 +21,12 @@ scripts/cut-release.sh --print-next-version --version 0.22.3
 Dry-run mode must not mutate public state:
 
 ```bash
-scripts/cut-release.sh --dry-run --version 0.22.3 --notes-file /tmp/gainlineup-notes.md
+just cut-release --dry-run --version 0.22.3 --notes-file /tmp/gainlineup-notes.md
 ```
 
-The dry run prints the manifest, validation, commit, tag, push, and GitHub
-release actions that a real run would perform. It does not edit files, create
-commits, create tags, push, or create a GitHub release.
+The dry run operates on a temporary archive of `HEAD`, validates the version
+bump, and does not edit files, create commits, create tags, push, or create a
+GitHub release.
 
 ## Real Release
 
@@ -33,7 +34,7 @@ Prepare release notes in a local markdown file, then run from the default branch
 with a clean working tree:
 
 ```bash
-scripts/cut-release.sh --version 0.22.3 --notes-file /tmp/gainlineup-notes.md
+just cut-release --version 0.22.3 --notes-file /tmp/gainlineup-notes.md
 ```
 
 The runner updates `Cargo.toml` and `Cargo.lock`, runs:

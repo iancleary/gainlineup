@@ -35,11 +35,19 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --version)
-      version="${2:-}"
+      [[ $# -ge 2 ]] || {
+        echo "error: --version requires a value" >&2
+        exit 2
+      }
+      version="$2"
       shift 2
       ;;
     --notes-file)
-      notes_file="${2:-}"
+      [[ $# -ge 2 ]] || {
+        echo "error: --notes-file requires a path" >&2
+        exit 2
+      }
+      notes_file="$2"
       shift 2
       ;;
     -h|--help)
@@ -123,30 +131,9 @@ if [[ "$dry_run" == 0 && -n "$(git status --porcelain)" ]]; then
   exit 2
 fi
 
-if [[ "$dry_run" == 1 ]]; then
-  echo "Dry run for $package_name $current_version -> $version"
-  if [[ "$current_branch" != "$default_branch" ]]; then
-    echo "Warning: real release must run from default branch ($default_branch); current branch is $current_branch"
-  fi
-  if [[ -n "$(git status --porcelain)" ]]; then
-    echo "Warning: real release requires a clean working tree"
-  fi
-  echo "Would update Cargo.toml and Cargo.lock"
-  echo "Would run: cargo fmt -- --check"
-  echo "Would run: cargo clippy --all-targets --all-features -- -D warnings"
-  echo "Would run: cargo test"
-  echo "Would commit: chore: release $tag"
-  echo "Would tag: $tag"
-  echo "Would push branch and tag to origin"
-  if [[ -n "$notes_file" ]]; then
-    echo "Would create GitHub release with notes from: $notes_file"
-  else
-    echo "Would require --notes-file before creating the GitHub release"
-  fi
-  exit 0
-fi
-
-python3 - "$version" <<'PY'
+update_version_files() {
+  local next="$1"
+  python3 - "$next" <<'PY'
 import pathlib
 import re
 import sys
@@ -159,11 +146,34 @@ if count != 1:
     raise SystemExit("error: could not find a single package version in Cargo.toml")
 path.write_text(updated)
 PY
+  cargo metadata --no-deps --format-version 1 >/dev/null
+}
 
-cargo check
-cargo fmt -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test
+run_checks() {
+  cargo fmt -- --check
+  cargo clippy --all-targets --all-features -- -D warnings
+  cargo test
+}
+
+if [[ "$dry_run" == 1 ]]; then
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+
+  git archive --format=tar HEAD | tar -x -C "$tmp"
+  cd "$tmp"
+  update_version_files "$version"
+  run_checks
+
+  echo "Dry run complete for $package_name $current_version -> $version."
+  echo "Would update Cargo.toml and Cargo.lock."
+  echo "Would commit: chore: release $tag"
+  echo "Would tag: $tag"
+  echo "Would push branch and tag to origin, then create a GitHub release."
+  exit 0
+fi
+
+update_version_files "$version"
+run_checks
 
 git add Cargo.toml Cargo.lock
 git commit -m "chore: release $tag"
