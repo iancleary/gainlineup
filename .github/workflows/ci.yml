@@ -18,16 +18,20 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Use Rust stable
         run: |
           rustup update stable
           rustup default stable
           rustup component add rustfmt clippy
-      - name: Install just
-        run: cargo install just --locked
       - name: Run contributor checks
-        run: just ci
+        run: |
+          cargo fmt -- --check
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo test
+          RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+          cargo package
+          cargo build
       - name: Publish to crates.io
         if: github.event_name == 'release'
         run: cargo publish --verbose
