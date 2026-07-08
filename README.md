@@ -3,6 +3,7 @@
 RF signal chain (gain lineup) analysis for receiver and transmitter design.
 
 [![Crates.io](https://img.shields.io/crates/v/gainlineup.svg)](https://crates.io/crates/gainlineup)
+[![Docs.rs](https://docs.rs/gainlineup/badge.svg)](https://docs.rs/gainlineup)
 
 ## What It Does
 

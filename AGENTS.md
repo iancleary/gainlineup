@@ -20,7 +20,7 @@ Maintain the deterministic release workflow with `create-release-process`.
 Execute ordinary releases with `cut-release` via `just cut-release`; see
 `docs/release.md` for the repo-local contract. The runner requires an explicit
 SemVer `--version`, supports read-only version queries, and creates the GitHub
-release as the final public step of a real release.
+release, which triggers the crates.io publish workflow.
 
 ## Notes
 

@@ -47,8 +47,11 @@ cargo test
 
 It then commits `chore: release v<version>`, creates an annotated `v<version>`
 tag, pushes the branch and tag, and finally creates the GitHub release with
-`gh release create`. The runner does not publish to crates.io; handle any crate
-publishing as a separate, explicit step.
+`gh release create`.
+
+Publishing to crates.io is handled by GitHub Actions: the published GitHub
+release event runs CI and then `cargo publish --verbose` with
+`CARGO_REGISTRY_TOKEN`.
 
 ## Agent Routing
 
