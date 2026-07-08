@@ -22,17 +22,17 @@ jobs:
       - name: Use Rust stable
         run: rustup update stable && rustup default stable
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: cargo fmt --all -- --check
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Run tests
-        run: cargo test
+        run: cargo test --all-features
       - name: Check documentation
-        run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps
       - name: Verify package
         run: cargo package
       - name: Build project
-        run: cargo build
+        run: cargo build --release
       - name: Publish (on tag)
         if: github.ref_type == 'tag'
         run: cargo publish --verbose

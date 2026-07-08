@@ -4,26 +4,30 @@ help:
 
 # format the code
 fmt:
-    cargo fmt
+    cargo fmt --all
 
 # alias for fmt
 format: fmt
 
 # check formatting without writing changes
 fmt-check:
-    cargo fmt -- --check
+    cargo fmt --all -- --check
 
 # lint the code without writing changes
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
+# apply automatic clippy fixes
+lint-fix:
+    cargo clippy --all-targets --all-features --fix -- -D warnings
+
 # run tests
 test:
-    cargo test
+    cargo test --all-features
 
 # check documentation with rustdoc warnings denied
 doc-check:
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+    RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps
 
 # verify package contents without publishing
 package:
@@ -31,7 +35,7 @@ package:
 
 # build the crate
 build:
-    cargo build
+    cargo build --release
 
 # format, lint, test, document, and package like CI
 check: fmt-check lint test doc-check package
