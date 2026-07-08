@@ -13,7 +13,7 @@ format: fmt
 fmt-check:
     cargo fmt -- --check
 
-# lint the code
+# lint the code without writing changes
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
@@ -21,24 +21,24 @@ lint:
 test:
     cargo test
 
-# build the crate
-build:
-    cargo build
-
 # check documentation with rustdoc warnings denied
 doc-check:
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 
-# verify the crate can be packaged without publishing
+# verify package contents without publishing
 package:
     cargo package
 
-# format-check, lint, test, document, and package
+# build the crate
+build:
+    cargo build
+
+# format, lint, test, document, and package like CI
 check: fmt-check lint test doc-check package
 
-# run contributor checks and build
+# run the same checks and build mirrored by CI
 ci: check build
 
-# cut a GitHub release
+# Cut a GitHub release for an explicit SemVer version.
 cut-release *args:
     ./scripts/cut-release.sh {{args}}
