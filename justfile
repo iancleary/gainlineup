@@ -4,41 +4,45 @@ help:
 
 # format the code
 fmt:
-    cargo fmt
+    cargo fmt --all
 
 # alias for fmt
 format: fmt
 
 # check formatting without writing changes
 fmt-check:
-    cargo fmt -- --check
+    cargo fmt --all -- --check
 
-# lint the code
+# lint the code without writing changes
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
+# apply automatic clippy fixes
+lint-fix:
+    cargo clippy --all-targets --all-features --fix -- -D warnings
+
 # run tests
 test:
-    cargo test
-
-# build the crate
-build:
-    cargo build
+    cargo test --all-features
 
 # check documentation with rustdoc warnings denied
 doc-check:
-    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+    RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps
 
-# verify the crate can be packaged without publishing
+# verify package contents without publishing
 package:
     cargo package
 
-# format-check, lint, test, document, and package
+# build the crate
+build:
+    cargo build --release
+
+# format, lint, test, document, and package like CI
 check: fmt-check lint test doc-check package
 
-# run contributor checks and build
+# run the same checks and build mirrored by CI
 ci: check build
 
-# cut a GitHub release
+# Cut a GitHub release for an explicit SemVer version.
 cut-release *args:
     ./scripts/cut-release.sh {{args}}
