@@ -38,3 +38,7 @@ check: fmt-check lint test doc-check package
 
 # run contributor checks and build
 ci: check build
+
+# cut a GitHub release
+cut-release *args:
+    ./scripts/cut-release.sh {{args}}
