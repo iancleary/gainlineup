@@ -20,7 +20,10 @@ fn assert_approx(actual: f64, expected: f64, tol: f64, msg: &str) {
 
 /// Build rfconversions stage tuples from parallel NF/gain arrays.
 fn stages(nfs: &[f64], gains: &[f64]) -> Vec<(f64, f64)> {
-    nfs.iter().zip(gains.iter()).map(|(&n, &g)| (n, g)).collect()
+    nfs.iter()
+        .zip(gains.iter())
+        .map(|(&n, &g)| (n, g))
+        .collect()
 }
 
 /// Two-stage LNA + mixer: compare gainlineup cascade NF against rfconversions.
@@ -177,6 +180,11 @@ fn single_block_nf_identity() {
     let output = cascade_vector_return_output(input, blocks);
     let expected_nf = cascade_noise_figure(&[(nf, gain)]);
 
-    assert_approx(output.cumulative_noise_figure_db, nf, 0.001, "Single block NF");
+    assert_approx(
+        output.cumulative_noise_figure_db,
+        nf,
+        0.001,
+        "Single block NF",
+    );
     assert_approx(expected_nf, nf, 0.001, "rfconversions single-stage NF");
 }
