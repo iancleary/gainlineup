@@ -9,6 +9,22 @@ RF signal chain (gain lineup) analysis for receiver and transmitter design.
 
 `gainlineup` models an RF signal chain as a sequence of blocks (amplifiers, filters, attenuators, mixers) and cascades their effects on signal power, noise, and linearity. Think of it as a spreadsheet-style RF lineup — but in Rust, with proper Friis equation cascading.
 
+## When To Use This Crate
+
+Use `gainlineup` for ordered RF hardware chains: LNAs, filters, attenuators,
+mixers, power amplifiers, cascaded gain/noise figure, P1dB compression,
+IP3/IMD3, SFDR, dynamic range, and AM-AM/AM-PM behavior.
+
+If the task starts from `.sNp` S-parameter files or network matrices, use
+`touchstone`. If it is an end-to-end communication link question involving
+path loss, C/No, Eb/No, BER, margin, orbit, Doppler, PFD, or modulation, use
+`linkbudget`. Use `rfconversions` for standalone scalar conversions before
+building a chain.
+
+Model each hardware stage as a `Block`. Negative `gain_db` represents loss, and
+passive losses usually have matching positive `noise_figure_db`. P1dB and IP3
+fields are output-referred dBm values.
+
 ## Quick Start
 
 ### 1. Define Your Input Signal
