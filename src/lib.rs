@@ -7,6 +7,11 @@
 //! IP3, dynamic range, and compression through a chain of RF blocks (amplifiers,
 //! attenuators, filters, mixers, etc.).
 //!
+//! Use `gainlineup` for ordered RF hardware chains. Use `touchstone` for `.sNp`
+//! S-parameter files and network matrices, `linkbudget` for end-to-end radio
+//! link performance, and `rfconversions` for standalone scalar RF conversions.
+//! P1dB and IP3 fields on [`Block`] are output-referred dBm values.
+//!
 //! # Quick Start
 //!
 //! ```
