@@ -140,7 +140,7 @@ fn load_blocks_recursive(
                 } = touchstone_file_path_and_frequency_to_struct(
                     full_path.to_string_lossy().to_string(),
                     frequency,
-                );
+                )?;
 
                 if !contains_frequency {
                     let file_path_relative_to_config = file_path.clone();
@@ -188,9 +188,9 @@ pub struct TouchstoneValid {
 pub fn touchstone_file_path_and_frequency_to_struct(
     file_path: String,
     frequency_in_hz: f64,
-) -> TouchstoneValid {
+) -> Result<TouchstoneValid, Box<dyn std::error::Error>> {
     tracing::debug!("Loading touchstone file: {}", file_path);
-    let s2p = Network::new(file_path.clone());
+    let s2p = Network::new(file_path.clone())?;
 
     // check if frequency is within the touchstone file
 
@@ -202,10 +202,10 @@ pub fn touchstone_file_path_and_frequency_to_struct(
             frequency_hz = frequency_in_hz,
             "Frequency not found in touchstone file"
         );
-        return TouchstoneValid {
+        return Ok(TouchstoneValid {
             contains_frequency: false,
             gain: None,
-        };
+        });
     }
 
     let gain_vector = s2p.s_db(2, 1); // uses 1-based indexing
@@ -217,10 +217,10 @@ pub fn touchstone_file_path_and_frequency_to_struct(
         .s_db
         .decibel();
 
-    TouchstoneValid {
+    Ok(TouchstoneValid {
         contains_frequency: true,
         gain: Some(gain),
-    }
+    })
 }
 
 fn calculate_gainlineup(input: Input, blocks: Vec<Block>) -> Vec<SignalNode> {
@@ -524,7 +524,8 @@ mod tests {
         } = touchstone_file_path_and_frequency_to_struct(
             touchstone_file_path.to_string(),
             frequency_in_hz,
-        );
+        )
+        .unwrap();
 
         let gain = gain.unwrap();
         assert!(contains_frequency);
@@ -543,7 +544,8 @@ mod tests {
         } = touchstone_file_path_and_frequency_to_struct(
             touchstone_file_path.to_string(),
             frequency_in_hz,
-        );
+        )
+        .unwrap();
         assert!(!contains_frequency);
         assert_eq!(gain, None);
     }
