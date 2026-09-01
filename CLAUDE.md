@@ -2,7 +2,7 @@
 
 ## Overview
 
-Rust crate for RF signal chain (gain lineup) cascade analysis. Models amplifiers, filters, attenuators, and mixers — cascading gain, noise figure (Friis equation), P1dB compression, IP3/IMD3, and dynamic range. Published on crates.io (v0.22.2).
+Rust crate for RF signal chain (gain lineup) cascade analysis. Models amplifiers, filters, attenuators, and mixers — cascading gain, noise figure (Friis equation), P1dB compression, IP3/IMD3, and dynamic range. Published on crates.io; the current crate version lives in `Cargo.toml`.
 
 ## Agent Usage
 
@@ -23,15 +23,62 @@ losses should usually have matching positive `noise_figure_db`, P1dB and IP3
 fields are output-referred dBm values, and `Input::noise_temperature_k` is an
 optional source/system temperature contribution rather than a block NF.
 
+## Operating Loop
+
+Start with the artifact closest to the requested behavior:
+
+- Public API behavior: read `src/lib.rs`, then `src/block.rs`, `src/input.rs`,
+  `src/node.rs`, or `src/amplifier_model.rs`.
+- CLI file behavior: read `src/cli.rs`, `src/plot.rs`, `src/file_operations.rs`,
+  and the TOML examples under `files/`.
+- Public examples: read `README.md` and the matching `tests/readme_*.rs` file.
+- Release mechanics: read `docs/release.md`, `justfile`, and
+  `scripts/cut-release.sh`.
+
+Then make the smallest coherent change that preserves the RF model. Prefer
+explicit units in names and examples (`*_db`, `*_dbm`, `*_hz`, `*_k`) and keep
+README snippets mirrored by `tests/readme_*.rs` whenever public examples change.
+
+## RF Model Invariants
+
+- `Block` is a stage model with scalar gain, noise figure, optional output P1dB,
+  and optional output IP3. Keep richer PA behavior in `AmplifierModel` unless a
+  cascade-level API genuinely needs it.
+- `Input` owns source signal power, center frequency, bandwidth, and optional
+  source noise temperature. It is not a block and does not have gain or NF.
+- `SignalNode` is the output of a stage. Its cumulative fields describe the
+  chain up to that node, not just the latest block.
+- Compression currently clamps power at `output_p1db_dbm + 1 dB`. If that model
+  changes, update `Block::output_power`, node cascade behavior, README examples,
+  and compression tests together.
+- Cascaded NF and OIP3 calculations are order-sensitive. Add or update
+  node-by-node tests for changes that alter ordering, gain signs, passive loss,
+  source temperature, or intercept math.
+
+## Agent Accretion
+
+When you learn something durable, put it where the next agent will look first:
+
+- API semantics belong in rustdoc and README examples.
+- Repo operation belongs here and in `AGENTS.md`.
+- Release procedure belongs in `docs/release.md` and the release runner.
+- Regression knowledge belongs in focused tests, especially README-mirrored tests
+  for public examples and `tests/integration_rf_scenarios.rs` for realistic
+  chains.
+
+Do not add broad planning files unless they will be maintained by an existing
+workflow. Prefer tightening the nearest doc, test name, or example over adding a
+new surface.
+
 ## Commands
 
 ```bash
-cargo test                        # Run all 96 tests (v0.22.2)
-cargo clippy -- -D warnings       # Lint
-cargo fmt -- --check              # Format check
-just cut-release --dry-run --version <semver> --notes-file <path>  # Preview release
-cargo run -- files/wideband.toml  # CLI: cascade from TOML, generates HTML
-cargo doc --open                  # Generate and view API docs
+cargo test --all-features
+cargo clippy --all-targets --all-features -- -D warnings
+cargo fmt --all -- --check
+just cut-release --dry-run --version <semver> --notes-file <path>
+cargo run -- files/wideband.toml
+RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps
 ```
 
 ## Releases
