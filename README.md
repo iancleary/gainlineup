@@ -25,6 +25,13 @@ Model each hardware stage as a `Block`. Negative `gain_db` represents loss, and
 passive losses usually have matching positive `noise_figure_db`. P1dB and IP3
 fields are output-referred dBm values.
 
+## Installation
+
+```toml
+[dependencies]
+gainlineup = "0.22.5"
+```
+
 ## Quick Start
 
 ### 1. Define Your Input Signal
