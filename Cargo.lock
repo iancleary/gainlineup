@@ -255,9 +255,9 @@ checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
 name = "touchstone"
-version = "0.14.3"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fc2c7bdd653197af55abd56e48ef616294debe4a958c45e0e59e10253d59bf3"
+checksum = "9a3edfc7c3beaef3f4662bc2322078203aa55e676d5550d6d2dbed24ec6b4d15"
 dependencies = [
  "rfconversions",
  "tracing",
