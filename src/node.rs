@@ -90,10 +90,14 @@ pub struct SignalNode {
     /// Total noise power at this node in dBm.
     pub noise_power_dbm: f64,
     /// Cumulative noise figure through the cascade in dB.
+    ///
+    /// Friis noise figure is a small-signal metric. When an earlier stage is
+    /// compressed, this model uses its compressed signal gain in later stages.
     pub cumulative_noise_figure_db: f64,
     /// Cumulative gain through the cascade in dB.
     pub cumulative_gain_db: f64,
-    /// Cumulative noise temperature in Kelvin, if available.
+    /// Input-referred temperature in Kelvin: source temperature plus the
+    /// stages' equivalent input noise temperatures, if available.
     pub cumulative_noise_temperature: Option<f64>,
     /// Cascaded output-referred IP3 in dBm, if available.
     pub cumulative_oip3_dbm: Option<f64>,
@@ -232,18 +236,7 @@ impl SignalNode {
 
         let cumulative_gain_linear = rfconversions::power::db_to_linear(self.cumulative_gain_db);
 
-        // handle compression point
-        // this is a simplification in that you can compress the block with noise
-        let output_power_without_compression = self.signal_power_dbm + block.gain_db;
-        let output_power_dbm = if let Some(output_p1db_dbm) = block.output_p1db_dbm {
-            if output_power_without_compression > output_p1db_dbm + 1.0 {
-                output_p1db_dbm + 1.0
-            } else {
-                output_power_without_compression
-            }
-        } else {
-            output_power_without_compression
-        };
+        let output_power_dbm = block.output_power(self.signal_power_dbm);
 
         let stage_power_gain = output_power_dbm - self.signal_power_dbm;
 
@@ -264,20 +257,10 @@ impl SignalNode {
 
         tracing::debug!("Input Noise Power: (dBm) {}", input_noise_power_dbm);
 
-        // handle compression point separately (as they are separate signals)
-        let output_noise_power_without_compression = input_noise_power_dbm + block.gain_db;
-        let output_noise_power_from_node_dbm = if let Some(output_p1db_dbm) = block.output_p1db_dbm
-        {
-            if output_noise_power_without_compression > output_p1db_dbm + 1.0 {
-                output_p1db_dbm + 1.0
-            } else {
-                output_noise_power_without_compression
-            }
-        } else {
-            output_noise_power_without_compression
-        };
+        // Apply the block's independent compression limit to the incoming noise.
+        let output_noise_power_from_node_dbm = block.output_power(input_noise_power_dbm);
 
-        // output noise power from block (independent of compression TODO: check this)
+        // Amplified added noise uses the same independent compression rule.
         let output_noise_power_from_block_dbm = block.output_noise_power(self.signal_bandwidth_hz);
 
         tracing::debug!(

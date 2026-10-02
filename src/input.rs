@@ -165,109 +165,20 @@ impl Input {
     /// ```
     #[must_use]
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
-        tracing::debug!("Start INPUT");
-
-        let output_node_name = block.name.clone() + " Output";
-
-        let block_noise_factor =
-            rfconversions::noise::noise_factor_from_noise_figure(block.noise_figure_db);
-
-        let block_noise_temperature =
-            rfconversions::noise::noise_temperature_from_noise_factor(block_noise_factor);
-
-        // handle compression point
-        let output_power_dbm_without_compression = self.power_dbm + block.gain_db;
-        let output_power_dbm = if let Some(output_p1db_dbm) = block.output_p1db_dbm {
-            if output_power_dbm_without_compression > output_p1db_dbm + 1.0 {
-                output_p1db_dbm + 1.0
-            } else {
-                output_power_dbm_without_compression
-            }
-        } else {
-            output_power_dbm_without_compression
-        };
-
-        let stage_power_gain_db = output_power_dbm - self.power_dbm;
-
-        let stage_power_gain_linear = rfconversions::power::db_to_linear(stage_power_gain_db);
-
-        let cumulative_noise_factor = block_noise_factor;
-
-        let cumulative_noise_figure =
-            rfconversions::noise::noise_figure_from_noise_factor(cumulative_noise_factor);
-
-        let cumulative_noise_temperature =
-            if let Some(noise_temperature_k) = self.noise_temperature_k {
-                Some(noise_temperature_k + block_noise_temperature / stage_power_gain_linear)
-            } else {
-                Some(270.0 + block_noise_temperature / stage_power_gain_linear)
-            };
-
-        let input_noise_power = self.noise_power();
-
-        tracing::debug!("Input Noise Power: (dBm) {}", input_noise_power);
-
-        let output_noise_power_from_input_dbm = input_noise_power + stage_power_gain_db;
-
-        let output_noise_power_from_block_dbm = block.output_noise_power(self.bandwidth_hz);
-
-        tracing::debug!(
-            "Output Noise Power from Input: (dBm) {}",
-            output_noise_power_from_input_dbm
-        );
-
-        tracing::debug!(
-            "Output Noise Power from Block: (dBm) {}",
-            output_noise_power_from_block_dbm
-        );
-
-        let output_noise_power_from_input_watts =
-            rfconversions::power::dbm_to_watts(output_noise_power_from_input_dbm);
-
-        let output_noise_power_from_block_watts =
-            rfconversions::power::dbm_to_watts(output_noise_power_from_block_dbm);
-
-        let total_noise_power_at_output_watts =
-            output_noise_power_from_input_watts + output_noise_power_from_block_watts;
-
-        tracing::debug!(
-            "Total Noise Power at Output: (W) {}",
-            total_noise_power_at_output_watts
-        );
-
-        let output_noise_power_at_output_dbm =
-            rfconversions::power::watts_to_dbm(total_noise_power_at_output_watts);
-
-        tracing::debug!(
-            "Output Noise Power at Output: (dBm) {}",
-            output_noise_power_at_output_dbm
-        );
-
-        tracing::debug!("End INPUT");
-
-        // OIP3: first block in chain, just use block's OIP3
-        let cumulative_oip3_dbm = block.output_ip3_dbm;
-
-        // SFDR calculation
-        let sfdr_db = cumulative_oip3_dbm.map(|oip3| {
-            let noise_floor_dbm =
-                -174.0 + 10.0 * self.bandwidth_hz.log10() + cumulative_noise_figure;
-            2.0 / 3.0 * (oip3 - noise_floor_dbm)
-        });
-
-        SignalNode {
-            name: output_node_name,
-            signal_power_dbm: output_power_dbm,
+        let source = SignalNode {
+            name: "Input".to_string(),
             signal_frequency_hz: self.frequency_hz,
             signal_bandwidth_hz: self.bandwidth_hz,
-            cumulative_noise_figure_db: cumulative_noise_figure,
-            cumulative_gain_db: stage_power_gain_db,
-            cumulative_noise_temperature,
-            noise_power_dbm: output_noise_power_at_output_dbm,
-            cumulative_oip3_dbm,
-            sfdr_db,
-            output_p1db_dbm: block.output_p1db_dbm,
-        }
+            signal_power_dbm: self.power_dbm,
+            noise_power_dbm: self.noise_power(),
+            cumulative_noise_figure_db: 0.0,
+            cumulative_gain_db: 0.0,
+            cumulative_noise_temperature: Some(self.noise_temperature_k.unwrap_or(270.0)),
+            cumulative_oip3_dbm: None,
+            sfdr_db: None,
+            output_p1db_dbm: None,
+        };
+        source.cascade_block(block)
     }
 }
 
@@ -293,13 +204,12 @@ mod tests {
         assert_eq!(signal_node.cumulative_noise_figure_db, 10.0);
         assert_eq!(signal_node.cumulative_gain_db, 10.0);
         // 10 dB NF = factor 10, T = 290*(10-1) = 2610K
-        // Added temp = 2610/10 = 261K
-        // Total = 270 + 261 = 531K
-        assert_eq!(signal_node.cumulative_noise_temperature, Some(531.0));
-        // Noise power calculation: k*T*B where T=531K, B=100Hz
+        // Input-referred temperature is source temperature plus the block's Te.
+        assert_eq!(signal_node.cumulative_noise_temperature, Some(2880.0));
+        // Output noise is k*(270 + 2610)*B times the 10 dB nominal gain.
         assert!(
-            (signal_node.noise_power_dbm - (-124.84)).abs() < 0.01,
-            "Expected noise power around -124.84 dBm, got {}",
+            (signal_node.noise_power_dbm - (-134.005)).abs() < 0.01,
+            "Expected noise power around -134.005 dBm, got {}",
             signal_node.noise_power_dbm
         );
     }

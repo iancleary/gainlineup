@@ -114,7 +114,7 @@ impl Block {
         rfconversions::noise::noise_factor_from_noise_figure(self.noise_figure_db)
     }
 
-    /// Input-referred noise power in dBm: `(F-1) × k × T × B`.
+    /// Input-referred added noise power in dBm: `k × T_e × B`, where `T_e = 290 × (F-1)` K.
     ///
     /// # Examples
     ///
@@ -133,17 +133,12 @@ impl Block {
     /// ```
     #[must_use]
     pub fn input_noise_power(&self, bandwidth: f64) -> f64 {
-        let noise_factor = self.noise_factor();
         let noise_temperature = self.noise_temperature();
-
-        let f_minus_1 = noise_factor - 1.0;
-
         let ktb = constants::BOLTZMANN * noise_temperature * bandwidth;
-
-        rfconversions::power::watts_to_dbm(f_minus_1 * ktb)
+        rfconversions::power::watts_to_dbm(ktb)
     }
 
-    /// Output noise power in dBm: input noise power plus gain, with compression limiting.
+    /// Output-referred added noise power in dBm: input-referred added noise plus gain, with compression limiting.
     ///
     /// # Examples
     ///
@@ -171,22 +166,7 @@ impl Block {
             input_noise_power
         );
 
-        let output_noise_power_without_compression = input_noise_power + self.gain_db;
-
-        tracing::debug!(
-            "Output Noise Power without compression: (dBm) {}",
-            output_noise_power_without_compression
-        );
-
-        let output_noise_power_dbm = if let Some(output_p1db_dbm) = self.output_p1db_dbm {
-            if output_noise_power_without_compression > output_p1db_dbm + 1.0 {
-                output_p1db_dbm + 1.0
-            } else {
-                output_noise_power_without_compression
-            }
-        } else {
-            output_noise_power_without_compression
-        };
+        let output_noise_power_dbm = self.output_power(input_noise_power);
 
         let noise_power_gain = output_noise_power_dbm - input_noise_power;
 
@@ -675,8 +655,8 @@ mod tests {
         // With 1 MHz bandwidth, 3 dB NF (290K), thermal noise ~= -114 dBm
         // After 10 dB gain: -114 + 10 = -104 dBm
         assert!(
-            (output_noise_power - (-104.02)).abs() < 0.01,
-            "Expected output noise power around -104.02 dBm, got {}",
+            (output_noise_power - (-104.0)).abs() < 0.01,
+            "Expected output noise power around -104.00 dBm, got {}",
             output_noise_power
         );
     }
@@ -695,8 +675,8 @@ mod tests {
 
         // Noise is -104 dBm, well below P1dB of -20 dBm, so no compression
         assert!(
-            (output_noise_power - (-104.02)).abs() < 0.01,
-            "Noise should not compress when well below P1dB. Expected -104.02 dBm, got {}",
+            (output_noise_power - (-104.0)).abs() < 0.01,
+            "Noise should not compress when well below P1dB. Expected -104.00 dBm, got {}",
             output_noise_power
         );
     }

@@ -152,15 +152,17 @@ At each node in the chain, the cascade computes:
 | Noise Power (dBm)     | Cumulative noise from all stages                     |
 | Gain (dB)             | Cumulative gain (accounts for compression)           |
 | Noise Figure (dB)     | Cascaded NF via Friis equation                       |
-| Noise Temperature (K) | Cascaded system temperature                          |
+| Noise Temperature (K) | Source plus input-referred stage noise temperature   |
 | OIP3 (dBm)            | Cascaded output IP3 (when blocks have IP3 set)       |
 | SFDR (dB)             | Spur-free dynamic range: `2/3 × (OIP3 − noise floor)` |
+
+Each block adds input-referred noise `kTₑB`, where `Tₑ = 290 K × (F − 1)` and `F` is its linear noise factor. The first stage starts with the source temperature, so its cumulative input-referred temperature is `Tsource + Tₑ`. Later stages use the same cascade calculation and refer each added temperature to the chain input.
 
 ---
 
 ## Compression (P1dB)
 
-When a block has `output_p1db_dbm` set, the output power clamps at P1dB + 1 dB. Signal and noise are compressed independently — noise only compresses if it actually exceeds P1dB (rare, but handled correctly).
+When a block has `output_p1db_dbm` set, the output power clamps at P1dB + 1 dB. The model applies this limit independently to the signal, incoming noise, and block-added noise. Friis noise figure and input-referred noise temperature are small-signal metrics; after an earlier stage compresses, the cascade uses its compressed signal gain for later stages' noise terms.
 
 ```rust
 use gainlineup::{Block};
