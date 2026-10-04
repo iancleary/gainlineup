@@ -47,11 +47,16 @@ mod open;
 mod plot;
 
 mod amplifier_model;
+mod sweep;
 
 pub use amplifier_model::{AmplifierModel, AmplifierModelBuilder, AmplifierPoint};
 pub use block::{Block, Imd3Point};
 pub use input::Input;
 pub use node::{DynamicRange, SignalNode};
+pub use sweep::{
+    cascade_frequency_sweep, FrequencyBlock, FrequencySample, FrequencySweep, FrequencySweepPoint,
+    SweepError,
+};
 
 /// Cascade a vector of blocks and return only the final output [`SignalNode`].
 ///

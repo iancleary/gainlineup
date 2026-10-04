@@ -20,6 +20,14 @@ exclude = [
     "files/**/js/*",
 ]
 
+[[example]]
+name = "transceiver_sweeps"
+path = "examples/transceiver_sweeps.rs"
+
+[[example]]
+name = "gnss_receiver"
+path = "examples/gnss_receiver.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

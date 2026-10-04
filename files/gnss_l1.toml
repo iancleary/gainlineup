@@ -1,0 +1,81 @@
+# GPS L1 receiver RF path; frequencies and assumptions: README.md, GNSS Receiver.
+# cargo run --quiet -- sweep files/gnss_l1.toml 1573420000 1577420000 41 > gnss_l1.csv
+# Component values are illustrative. Antenna-terminal power includes antenna gain.
+# bandwidth_hz is a chosen rectangular analysis bandwidth, not a measured filter ENBW.
+input_power_dbm = -130.0
+frequency_hz = 1575420000.0
+bandwidth_hz = 2000000.0
+noise_temperature_k = 290.0
+
+[[blocks]]
+type = "explicit"
+name = "Antenna feed and ESD loss"
+gain_db = -0.5
+noise_figure_db = 0.5
+
+[[blocks]]
+type = "tabulated"
+name = "Preselection SAW filter"
+
+[[blocks.samples]]
+frequency_hz = 1573420000.0
+gain_db = -2.5
+noise_figure_db = 2.5
+
+[[blocks.samples]]
+frequency_hz = 1575420000.0
+gain_db = -1.0
+noise_figure_db = 1.0
+
+[[blocks.samples]]
+frequency_hz = 1577420000.0
+gain_db = -2.5
+noise_figure_db = 2.5
+
+[[blocks]]
+type = "tabulated"
+name = "LNA"
+
+[[blocks.samples]]
+frequency_hz = 1573420000.0
+gain_db = 18.0
+noise_figure_db = 1.2
+output_p1db_dbm = 0.0
+
+[[blocks.samples]]
+frequency_hz = 1575420000.0
+gain_db = 20.0
+noise_figure_db = 0.8
+output_p1db_dbm = 0.0
+
+[[blocks.samples]]
+frequency_hz = 1577420000.0
+gain_db = 18.0
+noise_figure_db = 1.2
+output_p1db_dbm = 0.0
+
+[[blocks]]
+type = "tabulated"
+name = "Post-LNA SAW filter"
+
+[[blocks.samples]]
+frequency_hz = 1573420000.0
+gain_db = -3.0
+noise_figure_db = 3.0
+
+[[blocks.samples]]
+frequency_hz = 1575420000.0
+gain_db = -1.5
+noise_figure_db = 1.5
+
+[[blocks.samples]]
+frequency_hz = 1577420000.0
+gain_db = -3.0
+noise_figure_db = 3.0
+
+[[blocks]]
+type = "explicit"
+name = "Receiver RF gain stage"
+gain_db = 15.0
+noise_figure_db = 3.0
+output_p1db_dbm = 10.0
