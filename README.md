@@ -614,7 +614,7 @@ Touchstone devices; the default `NF = -gain` describes passive loss at 290 K.
 
 ### GNSS Receiver
 
-[examples/gnss_receiver.rs](examples/gnss_receiver.rs) models separate GPS L1
+[demos/gnss_receiver.rs](demos/gnss_receiver.rs) models separate GPS L1
 and L5 receiver RF paths. Their carrier frequencies are **1575.42 MHz** and
 **1176.45 MHz**, as specified in the [GPS signal interface documentation](https://archive.gps.gov/technical/icwg/IS-GPS-200N.pdf).
 Each path uses:
@@ -668,7 +668,7 @@ for the distinction between front-end and signal-processing performance.
 
 ### From Separate Lineups to a Transceiver
 
-[examples/transceiver_sweeps.rs](examples/transceiver_sweeps.rs) evaluates three
+[demos/transceiver_sweeps.rs](demos/transceiver_sweeps.rs) evaluates three
 illustrative lineups. Component values are examples, not measured specifications.
 The spacecraft transmitter and ground receiver are the two downlink endpoints.
 

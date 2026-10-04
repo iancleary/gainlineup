@@ -22,11 +22,11 @@ exclude = [
 
 [[example]]
 name = "transceiver_sweeps"
-path = "examples/transceiver_sweeps.rs"
+path = "demos/transceiver_sweeps.rs"
 
 [[example]]
 name = "gnss_receiver"
-path = "examples/gnss_receiver.rs"
+path = "demos/gnss_receiver.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
