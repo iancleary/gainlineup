@@ -803,6 +803,27 @@ Without a subscriber installed, all tracing calls are zero-cost no-ops.
 
 ---
 
+## Performance Checks
+
+Run `just bench` to measure scalar cascades and constant, mixed, and tabulated
+frequency sweeps. The benchmark uses release optimization and reports the median
+of seven samples per case. To measure one case, use
+`PERF_FILTER=mixed-sweep just bench`.
+
+Component fixtures are built before timing. Scalar cases include the block-vector
+clone required by the owned API. Each case prints a fingerprint of every node's
+fields, including the exact floating-point bits. Compare fingerprints and timings
+between revisions on the same machine and Rust toolchain. Run benchmarks without
+other builds or tests competing for CPU time.
+
+Constant-only frequency sweeps calculate the scalar metrics once, then copy the
+results with each requested frequency. Mixed and tabulated lineups are evaluated
+at every frequency. The interpolation and RF equations use the same arithmetic
+as individual scalar cascades. Tests compare every result field bit for bit,
+including compression, source temperature, missing intercepts, and table samples.
+
+---
+
 ## References
 
 - Pozar, D. *Microwave Engineering* (4th ed.) — Friis equation, noise figure, IP3

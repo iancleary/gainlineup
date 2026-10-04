@@ -96,23 +96,24 @@ pub fn cascade_vector_return_output(input: Input, blocks: Vec<Block>) -> SignalN
         input_power_dbm = input.power_dbm,
         "Starting cascade"
     );
-    let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
+    let mut cascading_signal: Option<SignalNode> = None;
 
     for (i, block) in blocks.iter().enumerate() {
-        if i == 0 {
-            cascading_signal = input.cascade_block(block);
-        } else {
-            cascading_signal = cascading_signal.cascade_block(block);
-        }
+        let next = match &cascading_signal {
+            Some(previous) => previous.cascade_block(block),
+            None => input.cascade_block(block),
+        };
         tracing::trace!(
             stage = i,
             block = %block.name,
-            signal_dbm = cascading_signal.signal_power_dbm,
-            gain_db = cascading_signal.cumulative_gain_db,
-            nf_db = cascading_signal.cumulative_noise_figure_db,
+            signal_dbm = next.signal_power_dbm,
+            gain_db = next.cumulative_gain_db,
+            nf_db = next.cumulative_noise_figure_db,
             "Stage output"
         );
+        cascading_signal = Some(next);
     }
+    let cascading_signal = cascading_signal.unwrap_or_default();
 
     tracing::debug!(
         output_power_dbm = cascading_signal.signal_power_dbm,
@@ -161,27 +162,28 @@ pub fn cascade_vector_return_vector(input: Input, blocks: Vec<Block>) -> Vec<Sig
         input_power_dbm = input.power_dbm,
         "Starting cascade (vector output)"
     );
-    let mut cascading_signal: SignalNode = SignalNode::default(); // will be overwritten in first iteration
-
-    // initialize node vector without input node, since the signal nodes are created in the loop and start with the output of the first block
-    let mut node_vector: Vec<SignalNode> = vec![];
-    for (i, block) in blocks.iter().enumerate() {
-        if i == 0 {
-            cascading_signal = input.cascade_block(block);
-        } else {
-            cascading_signal = cascading_signal.cascade_block(block);
-        }
-        tracing::trace!(
-            stage = i,
-            block = %block.name,
-            signal_dbm = cascading_signal.signal_power_dbm,
-            gain_db = cascading_signal.cumulative_gain_db,
-            nf_db = cascading_signal.cumulative_noise_figure_db,
-            "Stage output"
-        );
-        node_vector.push(cascading_signal.clone());
+    let mut node_vector = Vec::with_capacity(blocks.len());
+    for block in &blocks {
+        push_cascade_node(&input, block, &mut node_vector);
     }
     node_vector
+}
+
+// Keep the previous stage in the result vector instead of cloning its name.
+fn push_cascade_node(input: &Input, block: &Block, nodes: &mut Vec<SignalNode>) {
+    let next = match nodes.last() {
+        Some(previous) => previous.cascade_block(block),
+        None => input.cascade_block(block),
+    };
+    tracing::trace!(
+        stage = nodes.len(),
+        block = %block.name,
+        signal_dbm = next.signal_power_dbm,
+        gain_db = next.cumulative_gain_db,
+        nf_db = next.cumulative_noise_figure_db,
+        "Stage output"
+    );
+    nodes.push(next);
 }
 
 /// Sweep input power through a cascade of blocks and return the AM-AM curve.

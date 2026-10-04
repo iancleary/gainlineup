@@ -20,6 +20,11 @@ exclude = [
     "files/**/js/*",
 ]
 
+[[bin]]
+name = "gainlineup"
+path = "src/main.rs"
+required-features = ["cli"]
+
 [[example]]
 name = "transceiver_sweeps"
 path = "demos/transceiver_sweeps.rs"
@@ -27,6 +32,10 @@ path = "demos/transceiver_sweeps.rs"
 [[example]]
 name = "gnss_receiver"
 path = "demos/gnss_receiver.rs"
+
+[[bench]]
+name = "cascade_performance"
+harness = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
