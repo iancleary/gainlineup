@@ -48,5 +48,6 @@ check: fmt-check lint test doc-check package
 ci: check build
 
 # Cut a GitHub release for an explicit SemVer version.
+[positional-arguments]
 cut-release *args:
-    ./scripts/cut-release.sh {{args}}
+    ./scripts/cut-release.sh "$@"

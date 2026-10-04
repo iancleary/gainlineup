@@ -119,3 +119,12 @@ release, which triggers the crates.io publish workflow.
 - **src/amplifier_model.rs** — AM-PM modeling, EVM from distortion, backoff calculations
 - **files/** — Example TOML input files for CLI
 - Tests are co-located in each module file
+
+## Shared Just Interface
+
+Use `just help` to discover supported recipes. Use `just fmt-check`, `just lint`,
+`just test`, and `just doc-check` for focused verification. `just check` also
+verifies packaging and requires a clean checkout; `just ci` adds a release build.
+`just fmt` (alias `just format`) and `just lint-fix` explicitly modify source.
+Release arguments are forwarded literally by `just cut-release`; quote paths
+that contain spaces. Project-specific recipes remain optional.
