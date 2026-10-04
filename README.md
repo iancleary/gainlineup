@@ -805,6 +805,11 @@ Without a subscriber installed, all tracing calls are zero-cost no-ops.
 
 ## Performance Checks
 
+The 0.23.1 performance pass measured 1.20–1.58× faster scalar cascades and
+1.48–6.58× faster frequency sweeps on the local benchmark workloads, with
+matching node fingerprints. See [benchmark results and method](docs/performance.md)
+for the before/after timings, workload sizes, and verification limits.
+
 Run `just bench` to measure scalar cascades and constant, mixed, and tabulated
 frequency sweeps. The benchmark uses release optimization and reports the median
 of seven samples per case. To measure one case, use
