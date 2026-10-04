@@ -239,7 +239,9 @@ impl SignalNode {
     pub fn cascade_block(&self, block: &Block) -> SignalNode {
         tracing::debug!("START NODE Cascade_block");
 
-        let output_node_name = block.name.clone() + " Output";
+        let mut output_node_name = String::with_capacity(block.name.len() + " Output".len());
+        output_node_name.push_str(&block.name);
+        output_node_name.push_str(" Output");
 
         let block_noise_factor =
             rfconversions::noise::noise_factor_from_noise_figure(block.noise_figure_db);

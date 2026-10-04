@@ -1,3 +1,5 @@
+#![cfg(feature = "cli")]
+
 use gainlineup::{cascade_vector_return_vector, cli::load_config, Input};
 use std::process::Command;
 

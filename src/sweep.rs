@@ -1,6 +1,6 @@
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
-use crate::{cascade_vector_return_vector, Block, Input, SignalNode};
+use crate::{push_cascade_node, Block, Input, SignalNode};
 
 /// Invalid sweep grid, characterization data, or input conditions.
 #[derive(Clone, Debug, PartialEq)]
@@ -190,9 +190,15 @@ impl FrequencyBlock {
     /// Exact sample frequencies return the original parameters. Interpolation
     /// does not change the stage name or optional-parameter availability.
     pub fn at_frequency(&self, frequency_hz: f64) -> Result<Block, SweepError> {
+        self.evaluate(frequency_hz).map(Cow::into_owned)
+    }
+
+    // Internal evaluations can borrow constants and exact samples. The public
+    // API still returns an independently owned Block.
+    fn evaluate(&self, frequency_hz: f64) -> Result<Cow<'_, Block>, SweepError> {
         validate_frequency(frequency_hz)?;
         let samples = match &self.response {
-            Response::Constant(block) => return Ok(block.clone()),
+            Response::Constant(block) => return Ok(Cow::Borrowed(block)),
             Response::Tabulated(samples) => samples,
         };
         let first = &samples[0];
@@ -205,20 +211,20 @@ impl FrequencyBlock {
         }
         let upper = samples.partition_point(|sample| sample.frequency_hz < frequency_hz);
         if samples[upper].frequency_hz == frequency_hz {
-            return Ok(samples[upper].block.clone());
+            return Ok(Cow::Borrowed(&samples[upper].block));
         }
         let low = &samples[upper - 1];
         let high = &samples[upper];
         let fraction = (frequency_hz - low.frequency_hz) / (high.frequency_hz - low.frequency_hz);
         let interpolate = |a: f64, b: f64| a * (1.0 - fraction) + b * fraction;
         let optional = |a: Option<f64>, b: Option<f64>| a.zip(b).map(|(a, b)| interpolate(a, b));
-        Ok(Block {
+        Ok(Cow::Owned(Block {
             name: low.block.name.clone(),
             gain_db: interpolate(low.block.gain_db, high.block.gain_db),
             noise_figure_db: interpolate(low.block.noise_figure_db, high.block.noise_figure_db),
             output_p1db_dbm: optional(low.block.output_p1db_dbm, high.block.output_p1db_dbm),
             output_ip3_dbm: optional(low.block.output_ip3_dbm, high.block.output_ip3_dbm),
-        })
+        }))
     }
 }
 
@@ -265,43 +271,61 @@ pub fn cascade_frequency_sweep(
     }
     // Validate coverage before calculating any nodes.
     for block in blocks {
-        block.at_frequency(sweep.frequencies_hz[0])?;
-        block.at_frequency(sweep.frequencies_hz[sweep.frequencies_hz.len() - 1])?;
+        block.evaluate(sweep.frequencies_hz[0])?;
+        block.evaluate(sweep.frequencies_hz[sweep.frequencies_hz.len() - 1])?;
     }
-    sweep
-        .frequencies_hz
+    let frequency_independent = blocks
         .iter()
-        .map(|&frequency_hz| {
-            let evaluated = blocks
-                .iter()
-                .map(|block| block.at_frequency(frequency_hz))
-                .collect::<Result<Vec<_>, _>>()?;
-            let mut point_input = input.clone();
-            point_input.frequency_hz = frequency_hz;
-            let nodes = cascade_vector_return_vector(point_input, evaluated);
-            for node in &nodes {
-                let required = [
-                    node.signal_power_dbm,
-                    node.noise_power_dbm,
-                    node.cumulative_gain_db,
-                    node.cumulative_noise_figure_db,
-                ];
-                let optional = [
-                    node.cumulative_noise_temperature,
-                    node.cumulative_oip3_dbm,
-                    node.sfdr_db,
-                    node.output_p1db_dbm,
-                ];
-                if required.iter().any(|value| !value.is_finite())
-                    || optional.iter().flatten().any(|value| !value.is_finite())
-                {
-                    return Err(invalid(format!(
+        .all(|block| matches!(block.response, Response::Constant(_)));
+    let mut points: Vec<FrequencySweepPoint> = Vec::with_capacity(sweep.frequencies_hz.len());
+    for &frequency_hz in &sweep.frequencies_hz {
+        if let Some(first) = points.first().filter(|_| frequency_independent) {
+            // Constant blocks use the same RF parameters at every frequency.
+            // Frequency is only a label in the scalar cascade model. Reuse the
+            // already validated metrics without changing their floating-point bits.
+            let mut nodes = first.nodes.clone();
+            for node in &mut nodes {
+                node.signal_frequency_hz = frequency_hz;
+            }
+            points.push(FrequencySweepPoint {
+                frequency_hz,
+                nodes,
+            });
+            continue;
+        }
+        let mut point_input = input.clone();
+        point_input.frequency_hz = frequency_hz;
+        let mut nodes = Vec::with_capacity(blocks.len());
+        for block in blocks {
+            let evaluated = block.evaluate(frequency_hz)?;
+            push_cascade_node(&point_input, &evaluated, &mut nodes);
+        }
+        for node in &nodes {
+            let required = [
+                node.signal_power_dbm,
+                node.noise_power_dbm,
+                node.cumulative_gain_db,
+                node.cumulative_noise_figure_db,
+            ];
+            let optional = [
+                node.cumulative_noise_temperature,
+                node.cumulative_oip3_dbm,
+                node.sfdr_db,
+                node.output_p1db_dbm,
+            ];
+            if required.iter().any(|value| !value.is_finite())
+                || optional.iter().flatten().any(|value| !value.is_finite())
+            {
+                return Err(invalid(format!(
                         "nonfinite cascade result at {frequency_hz} Hz, stage {:?}; check parameter magnitudes",
                         node.name
                     )));
-                }
             }
-            Ok(FrequencySweepPoint { frequency_hz, nodes })
-        })
-        .collect()
+        }
+        points.push(FrequencySweepPoint {
+            frequency_hz,
+            nodes,
+        });
+    }
+    Ok(points)
 }

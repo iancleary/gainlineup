@@ -25,6 +25,10 @@ lint-fix:
 test:
     cargo test --all-features
 
+# compare cascade and frequency-sweep performance in release mode
+bench:
+    cargo bench --bench cascade_performance
+
 # check documentation with rustdoc warnings denied
 doc-check:
     RUSTDOCFLAGS="-D warnings" cargo doc --all-features --no-deps
