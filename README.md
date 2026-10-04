@@ -158,6 +158,13 @@ At each node in the chain, the cascade computes:
 
 Each block adds input-referred noise `kTₑB`, where `Tₑ = 290 K × (F − 1)` and `F` is its linear noise factor. The first stage starts with the source temperature, so its cumulative input-referred temperature is `Tsource + Tₑ`. Later stages use the same cascade calculation and refer each added temperature to the chain input.
 
+Cascaded OIP3 uses output-referred powers: `1/OIP3_total =
+1/(G_stage × OIP3_previous) + 1/OIP3_stage`, with watts and linear power gain.
+SFDR compares OIP3 with the calculated noise power at that same output node,
+including source temperature and bandwidth. A missing block IP3 clears the
+cumulative estimate; a later characterized block starts a new local estimate.
+That restarted estimate does not characterize the preceding unknown stages.
+
 ---
 
 ## Compression (P1dB)
@@ -490,6 +497,220 @@ The CLI generates an HTML visualization of the cascade:
 
 ---
 
+## Frequency Sweeps
+
+The sweep API evaluates the existing cascade at each frequency. It returns every
+stage output, so you can inspect gain, NF, signal power, noise, compression, and
+linearity across a band. These additions are available in this checkout; use a
+path dependency until the next release.
+
+The S-band sweep examples use the **2200–2290 MHz near-Earth S-band space-to-Earth
+downlink**. NASA's [S-band allocation overview](https://explorers.larc.nasa.gov/2023ESE/pdf_files/S-Band-Overview_2-8GHz.pdf)
+identifies this downlink range; the FCC's [47 CFR § 2.106](https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-2/subpart-B/section-2.106)
+lists the allocations and applicable conditions. Band-edge points characterize
+components across the allocation; they are not assigned operating channels.
+
+```rust
+use gainlineup::{
+    cascade_frequency_sweep, Block, FrequencyBlock, FrequencySample, FrequencySweep, Input,
+};
+
+let switch = FrequencyBlock::tabulated(vec![
+    FrequencySample {
+        frequency_hz: 2.2e9,
+        block: Block {
+            name: "RX switch".into(),
+            gain_db: -1.0,
+            noise_figure_db: 1.0,
+            ..Block::default()
+        },
+    },
+    FrequencySample {
+        frequency_hz: 2.29e9,
+        block: Block {
+            name: "RX switch".into(),
+            gain_db: -2.0,
+            noise_figure_db: 2.0,
+            ..Block::default()
+        },
+    },
+])?;
+let lna = FrequencyBlock::constant(Block {
+    name: "LNA".into(),
+    gain_db: 20.0,
+    noise_figure_db: 1.5,
+    ..Block::default()
+})?;
+let grid = FrequencySweep::linear(2.2e9, 2.29e9, 3)?;
+let input = Input::new(0.0, 1e6, -80.0, Some(290.0));
+let points = cascade_frequency_sweep(&input, &[switch, lna], &grid)?;
+
+let midband = &points[1].nodes[1];
+assert_eq!(points[1].frequency_hz, 2.245e9);
+assert_eq!(midband.signal_power_dbm, -61.5);
+assert!((midband.cumulative_noise_figure_db - 3.0).abs() < 1e-9);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+The executable mirror is [tests/readme_11_frequency_sweep.rs](tests/readme_11_frequency_sweep.rs).
+
+- `FrequencySweep::linear(start_hz, stop_hz, points)` includes both endpoints.
+  `logarithmic` uses the same arguments. Range grids require 2–1,000,000 points.
+- `FrequencySweep::from_frequencies` accepts 1–1,000,000 strictly increasing,
+  finite, positive frequencies. It does not sort or deduplicate the input.
+- Tables need at least two ordered samples with the same component name.
+  Gain and NF interpolate linearly in dB versus Hz; intercepts interpolate in
+  dBm. Optional intercepts must be present at every sample or absent at every
+  sample. Frequencies outside the table return an error.
+- Input power, bandwidth, and source temperature remain fixed across the sweep.
+  Only `Input::frequency_hz` is replaced. The library retains its 270 K default
+  for an unspecified temperature; the CLI retains its 290 K default.
+- Each point is a narrowband scalar evaluation. A sweep does not integrate
+  noise across the swept band, change signal bandwidth, or translate frequency.
+  Existing `Block`, `Input`, and single-frequency cascade APIs remain usable.
+
+### CLI and Component Tables
+
+Run from the repository root:
+
+```bash
+cargo run --quiet -- sweep files/frequency_sweep.toml 2.2e9 2.29e9 101 > sweep.csv
+cargo run --quiet --example transceiver_sweeps > transceiver.csv
+```
+
+The `sweep` command writes CSV with one row per stage per frequency, including
+gain, NF, signal/noise power, SNR, OIP3, and SFDR. Stage indices start at 1.
+Unavailable optional metrics are empty fields. Diagnostics go to stderr.
+Invalid configurations fail before any CSV rows are emitted. No HTML file or
+browser tab is created. The existing single-frequency CLI still produces HTML.
+
+Add a frequency-dependent component to a TOML lineup as follows:
+
+```toml
+[[blocks]]
+type = "tabulated"
+name = "RX switch"
+
+[[blocks.samples]]
+frequency_hz = 2.2e9
+gain_db = -1.0
+noise_figure_db = 1.0
+
+[[blocks.samples]]
+frequency_hz = 2.29e9
+gain_db = -2.0
+noise_figure_db = 2.0
+```
+
+Each sample can also specify `output_p1db_dbm` and `output_ip3_dbm`.
+The top-level `frequency_hz` remains required for the existing file format;
+the sweep command replaces it with the requested range. Explicit blocks are
+constant across frequency. Includes resolve relative to their containing file.
+Touchstone blocks load once per sweep and interpolate scalar `S21` gain in dB
+versus Hz within the measured band. This is a matched scalar approximation,
+without complex phase or mismatch effects. The single-frequency Touchstone
+loader retains its exact-sample behavior. Supply NF explicitly for active
+Touchstone devices; the default `NF = -gain` describes passive loss at 290 K.
+
+### GNSS Receiver
+
+[demos/gnss_receiver.rs](demos/gnss_receiver.rs) models separate GPS L1
+and L5 receiver RF paths. Their carrier frequencies are **1575.42 MHz** and
+**1176.45 MHz**, as specified in the [GPS signal interface documentation](https://archive.gps.gov/technical/icwg/IS-GPS-200N.pdf).
+Each path uses:
+
+`Antenna terminal → feed/ESD loss → preselection SAW → LNA → post-LNA SAW → receiver RF gain stage`
+
+The SAW–LNA–SAW topology is also used in commercial GNSS front ends; see the
+[u-blox NEO-F10N integration manual, section 4.3](https://content.u-blox.com/sites/default/files/documents/NEO-F10N_IntegrationManual_UBXDOC-963802114-12193.pdf).
+The example's component values are illustrative and do not represent that device.
+The antenna is represented by received power and source temperature at its
+terminal. Its gain is already included in the assumed −130 dBm input power.
+
+| Path | Carrier | Component sweep | Assumed analysis bandwidth |
+|------|---------|-----------------|----------------------------|
+| GPS L1 | 1575.42 MHz | 1573.42–1577.42 MHz | 2 MHz |
+| GPS L5 | 1176.45 MHz | 1164.45–1188.45 MHz | 20 MHz |
+
+These are chosen characterization windows around each carrier, not allocation
+edges. Bandwidth is a fixed rectangular noise-analysis assumption. The sampled
+filter loss does not define or integrate a measured equivalent noise bandwidth.
+L1 and L5 use separate filter/LNA paths rather than interpolation across the
+large gap between the two carriers.
+
+```bash
+# Both paths, every stage, including C/N0 in dB-Hz
+cargo run --quiet --example gnss_receiver > gnss_receiver.csv
+
+# Equivalent TOML lineups through the standard sweep CLI
+cargo run --quiet -- sweep files/gnss_l1.toml 1573.42e6 1577.42e6 41 > gnss_l1.csv
+cargo run --quiet -- sweep files/gnss_l5.toml 1164.45e6 1188.45e6 41 > gnss_l5.csv
+```
+
+The Rust example exports `cn0_db_hz` at every stage, using
+`node.signal_power_dbm - node.noise_spectral_density()`.
+Equivalently, `C/N0 = SNR + 10 log10(bandwidth_hz)`. The standard CLI keeps
+its existing columns; calculate C/N0 from its SNR and the configured bandwidth.
+
+At either carrier, with the assumed −130 dBm input and 290 K source, the model
+gives 32 dB gain, approximately 2.365 dB NF, −98 dBm output signal, and
+41.610 dB-Hz C/N0. L1 pre-correlation SNR is approximately −21.400 dB;
+L5 is −31.400 dB because its analysis bandwidth is ten times larger. The
+equal C/N0 values follow from equal assumed carrier powers and center-frequency
+component characteristics. These values are checked in
+[tests/readme_12_gnss_receiver.rs](tests/readme_12_gnss_receiver.rs).
+
+This is an RF budget through the receiver input. Acquisition, despreading,
+tracking, AGC/ADC behavior, antenna patterns, and interference rejection need
+additional models. In particular, a negative pre-correlation SNR is not an
+acquisition failure criterion. See ESA's [GNSS front-end overview](https://gssc.esa.int/navipedia/index.php/Front_End)
+for the distinction between front-end and signal-processing performance.
+
+### From Separate Lineups to a Transceiver
+
+[demos/transceiver_sweeps.rs](demos/transceiver_sweeps.rs) evaluates three
+illustrative lineups. Component values are examples, not measured specifications.
+The spacecraft transmitter and ground receiver are the two downlink endpoints.
+
+| Lineup | Source and selected path | Sweep |
+|--------|--------------------------|-------|
+| Ground RX RF section | Ground antenna → switch RX route → LNA → RF filter | 2200–2290 MHz |
+| Spacecraft TX RF section | RF input → driver → PA → output filter → switch TX route → spacecraft antenna | 2200–2290 MHz |
+| Ground RX LO distribution | Oscillator carrier → buffer → splitter branch → LO switch | 2100–2190 MHz |
+
+The ground receiver uses a chosen 100 MHz IF with low-side LO injection:
+`f_LO = f_RF - 100 MHz`. The LO range is internal tuning, not a radiated
+allocation. The example derives its LO endpoints from the RF endpoints and IF.
+
+The oscillator is an `Input` for its carrier-power budget. The selected switch
+path is a loss block. These lineups calculate carrier levels and thermal-noise
+budgets; they do not yet connect mixer LO ports or predict phase noise,
+off-state isolation, or simultaneous TX leakage into RX.
+
+The next modeling improvements, in implementation order, are:
+
+| Priority | Addition | Acceptance case |
+|----------|----------|-----------------|
+| 1 | Explicit mixer stage and frequency plan, with LO reference, selected product, image frequency, inversion, and port limits | 2245 MHz RF and 2145 MHz LO produce 100 MHz IF; report the 2045 MHz image and evaluate the next filter at 100 MHz |
+| 2 | Oscillator phase-noise samples versus offset, LO-drive limits, and buffer residual noise | Check drive margin at RX/TX mixer ports; integrate phase noise over stated offset limits; calculate blocker reciprocal mixing |
+| 3 | Named operating states and shared component identities, with separate switch insertion-loss and isolation paths | Select RX or TX routes; +30 dBm TX and 50 dB isolation give −20 dBm leakage before downstream losses |
+| 4 | Filter response and equivalent noise bandwidth, distinct from signal bandwidth | Halving rectangular noise bandwidth lowers white-noise power by 3.01 dB; integrate noise through downstream filters |
+| 5 | Requirement margins and tolerance sweeps, with explicit unknown versus ideal linearity | Check sensitivity, gain ripple, compression/backoff, LO drive, and leakage across frequency and component tolerances |
+
+Use a companion stage/system layer for these additions so existing `Block` and
+`Input` literals remain compatible. Start with selected named paths before adding
+a general graph solver. Mixer noise needs explicit image-sideband assumptions;
+an SSB/DSB label alone is insufficient for general cascades. See Analog Devices'
+[mixer noise analysis](https://www.analog.com/en/resources/technical-articles/system-noisefigure-analysis-for-modern-radio-receivers.html),
+[phase-noise integration tutorial](https://www.analog.com/media/en/training-seminars/tutorials/mt-008.pdf),
+and [LO reciprocal-mixing discussion](https://www.analog.com/en/resources/technical-articles/wideband-lo-noise-in-passive-transmitreceive-mixer-ics.html).
+
+Keep full S-parameter mismatch analysis in `touchstone`. Waveform EVM/ACLR,
+PA memory effects, and correlated shared-LO noise need richer models than this
+scalar cascade.
+
+---
+
 ## API Summary
 
 ### Core Types
@@ -503,6 +724,11 @@ The CLI generates an HTML visualization of the cascade:
 | `DynamicRange` | Summary: linear DR, SFDR, MDS, max input        |
 | `AmplifierModel` | Block wrapper with AM-PM characterization     |
 | `AmplifierPoint` | Combined AM-AM + AM-PM sweep point             |
+| `FrequencySweep` | Validated linear, logarithmic, or explicit frequency grid |
+| `FrequencyBlock` | Constant or tabulated scalar component response |
+| `FrequencySample` | A block characterization at one frequency |
+| `FrequencySweepPoint` | Frequency and every stage's output node |
+| `SweepError` | Invalid sweep inputs, characterization, or numerical results |
 
 ### Cascade Functions
 
@@ -512,6 +738,7 @@ The CLI generates an HTML visualization of the cascade:
 | `cascade_vector_return_vector()`  | `Vec<SignalNode>` at every stage     |
 | `cascade_am_am_sweep()`          | `Vec<(Pin, Pout)>` through full chain |
 | `cascade_gain_compression_sweep()`| `Vec<(Pin, Gain)>` through full chain |
+| `cascade_frequency_sweep()` | `Result<Vec<FrequencySweepPoint>, SweepError>` |
 
 ### Block Methods
 

@@ -1,0 +1,49 @@
+# cargo run -- sweep files/frequency_sweep.toml 2.2e9 2.29e9 101 > sweep.csv
+# Ground receiver for a near-Earth space-to-Earth downlink: 2200-2290 MHz.
+# Allocation sources and modeling scope: README.md, Frequency Sweeps.
+# Frequency samples must be ordered. Interpolation is linear in Hz and dB/dBm.
+# Values are illustrative, not specifications for real hardware.
+input_power_dbm = -80.0
+frequency_hz = 2.245e9
+bandwidth_hz = 1.0e6
+noise_temperature_k = 290.0
+
+[[blocks]]
+type = "tabulated"
+name = "Receive switch"
+
+[[blocks.samples]]
+frequency_hz = 2.2e9
+gain_db = -0.5
+noise_figure_db = 0.5
+output_ip3_dbm = 50.0
+
+[[blocks.samples]]
+frequency_hz = 2.29e9
+gain_db = -1.0
+noise_figure_db = 1.0
+output_ip3_dbm = 50.0
+
+[[blocks]]
+type = "tabulated"
+name = "LNA"
+
+[[blocks.samples]]
+frequency_hz = 2.2e9
+gain_db = 20.0
+noise_figure_db = 1.0
+output_p1db_dbm = 10.0
+output_ip3_dbm = 25.0
+
+[[blocks.samples]]
+frequency_hz = 2.29e9
+gain_db = 17.0
+noise_figure_db = 1.8
+output_p1db_dbm = 9.0
+output_ip3_dbm = 24.0
+
+[[blocks]]
+type = "explicit"
+name = "Post-amplifier pad"
+gain_db = -3.0
+noise_figure_db = 3.0

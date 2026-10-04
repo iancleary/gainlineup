@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::process;
 
 // this cannot be crate::Network because of how Cargo works,
@@ -10,6 +11,7 @@ use crate::file_operations;
 use crate::Block;
 use crate::Input;
 use crate::SignalNode;
+use crate::{cascade_frequency_sweep, FrequencyBlock, FrequencySample, FrequencySweep};
 
 use touchstone::Network;
 
@@ -26,6 +28,28 @@ pub struct Config {
     pub bandwidth_hz: Option<f64>,
     pub noise_temperature_k: Option<f64>,
     pub blocks: Vec<Block>,
+}
+
+#[derive(Deserialize)]
+struct IntermediateConfig {
+    #[serde(alias = "input_power", alias = "pin")]
+    input_power_dbm: f64,
+    #[serde(alias = "frequency", alias = "f")]
+    frequency_hz: f64,
+    #[serde(alias = "bandwidth", alias = "bw")]
+    bandwidth_hz: Option<f64>,
+    #[serde(alias = "noise_temperature")]
+    noise_temperature_k: Option<f64>,
+    blocks: Vec<BlockConfig>,
+}
+
+#[derive(Deserialize, Debug)]
+struct SampleConfig {
+    frequency_hz: f64,
+    gain_db: f64,
+    noise_figure_db: f64,
+    output_p1db_dbm: Option<f64>,
+    output_ip3_dbm: Option<f64>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -55,126 +79,253 @@ enum BlockConfig {
         #[serde(alias = "output_p1db", alias = "op1db")]
         output_p1db_dbm: Option<f64>,
     },
+    Tabulated {
+        name: String,
+        samples: Vec<SampleConfig>,
+    },
     Include {
         path: String,
     },
 }
 
-pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
+fn read_config(path: &str) -> Result<IntermediateConfig, Box<dyn std::error::Error>> {
     tracing::debug!("Loading config: {}", path);
-    let config_content = fs::read_to_string(path)?;
-    tracing::trace!("Config content: {}", config_content);
+    Ok(toml::from_str(&fs::read_to_string(path)?)?)
+}
 
-    // We need an intermediate struct to parse the TOML because Config now holds Vec<Block>
-    // but the TOML contains BlockConfigs
-    #[derive(Deserialize)]
-    struct IntermediateConfig {
-        #[serde(alias = "input_power", alias = "pin")]
-        input_power_dbm: f64,
-        #[serde(alias = "frequency", alias = "f")]
-        frequency_hz: f64,
-        #[serde(alias = "bandwidth", alias = "bw")]
-        bandwidth_hz: Option<f64>,
-        #[serde(alias = "noise_temperature")]
-        noise_temperature_k: Option<f64>,
-        blocks: Vec<BlockConfig>,
-    }
-
-    let intermediate_config: IntermediateConfig = toml::from_str(&config_content)?;
-    tracing::debug!("Parsed config successfully");
-
+pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
+    let config = read_config(path)?;
     let mut blocks = Vec::new();
-    let config_path = Path::new(path);
-    let base_dir = config_path.parent().unwrap_or_else(|| Path::new("."));
-
-    load_blocks_recursive(
-        intermediate_config.blocks,
-        intermediate_config.frequency_hz,
-        &mut blocks,
-        base_dir,
-    )?;
-
+    visit_blocks(path, config.blocks, &mut |block, base_dir| {
+        blocks.push(resolve_static_block(block, config.frequency_hz, base_dir)?);
+        Ok(())
+    })?;
     Ok(Config {
-        input_power_dbm: intermediate_config.input_power_dbm,
-        frequency_hz: intermediate_config.frequency_hz,
-        bandwidth_hz: intermediate_config.bandwidth_hz,
-        noise_temperature_k: intermediate_config.noise_temperature_k,
+        input_power_dbm: config.input_power_dbm,
+        frequency_hz: config.frequency_hz,
+        bandwidth_hz: config.bandwidth_hz,
+        noise_temperature_k: config.noise_temperature_k,
         blocks,
     })
 }
 
-fn load_blocks_recursive(
-    block_configs: Vec<BlockConfig>,
-    frequency: f64,
-    blocks: &mut Vec<Block>,
-    base_dir: &Path,
+fn visit_blocks(
+    path: &str,
+    blocks: Vec<BlockConfig>,
+    visitor: &mut impl FnMut(BlockConfig, &Path) -> Result<(), Box<dyn std::error::Error>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    for block_config in block_configs {
-        match block_config {
-            BlockConfig::Explicit {
+    let mut active_paths = vec![fs::canonicalize(path)?];
+    let base_dir = Path::new(path).parent().unwrap_or_else(|| Path::new("."));
+    visit_blocks_recursive(blocks, base_dir, &mut active_paths, visitor)
+}
+
+fn visit_blocks_recursive(
+    blocks: Vec<BlockConfig>,
+    base_dir: &Path,
+    active_paths: &mut Vec<PathBuf>,
+    visitor: &mut impl FnMut(BlockConfig, &Path) -> Result<(), Box<dyn std::error::Error>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for block in blocks {
+        if let BlockConfig::Include { path } = block {
+            let included_path = base_dir.join(path);
+            let canonical_path = fs::canonicalize(&included_path)?;
+            if active_paths.contains(&canonical_path) {
+                return Err(format!("Circular config include: {}", included_path.display()).into());
+            }
+            tracing::debug!("Loading included config: {}", included_path.display());
+            let included: IncludedConfig = toml::from_str(&fs::read_to_string(&included_path)?)?;
+            active_paths.push(canonical_path);
+            visit_blocks_recursive(
+                included.blocks,
+                included_path.parent().unwrap_or_else(|| Path::new(".")),
+                active_paths,
+                visitor,
+            )?;
+            active_paths.pop();
+        } else {
+            visitor(block, base_dir)?;
+        }
+    }
+    Ok(())
+}
+
+fn tabulated_block(
+    name: String,
+    samples: Vec<SampleConfig>,
+) -> Result<FrequencyBlock, Box<dyn std::error::Error>> {
+    Ok(FrequencyBlock::tabulated(
+        samples
+            .into_iter()
+            .map(|sample| FrequencySample {
+                frequency_hz: sample.frequency_hz,
+                block: Block {
+                    name: name.clone(),
+                    gain_db: sample.gain_db,
+                    noise_figure_db: sample.noise_figure_db,
+                    output_p1db_dbm: sample.output_p1db_dbm,
+                    output_ip3_dbm: sample.output_ip3_dbm,
+                },
+            })
+            .collect(),
+    )?)
+}
+
+fn resolve_static_block(
+    block: BlockConfig,
+    frequency_hz: f64,
+    base_dir: &Path,
+) -> Result<Block, Box<dyn std::error::Error>> {
+    match block {
+        BlockConfig::Explicit {
+            name,
+            gain_db,
+            noise_figure_db,
+            output_p1db_dbm,
+            output_ip3_dbm,
+        } => Ok(Block {
+            name,
+            gain_db,
+            noise_figure_db,
+            output_p1db_dbm,
+            output_ip3_dbm,
+        }),
+        BlockConfig::Tabulated { name, samples } => {
+            Ok(tabulated_block(name, samples)?.at_frequency(frequency_hz)?)
+        }
+        BlockConfig::Touchstone {
+            file_path,
+            name,
+            noise_figure_db,
+            output_p1db_dbm,
+        } => {
+            let result = touchstone_file_path_and_frequency_to_struct(
+                base_dir.join(&file_path).to_string_lossy().into_owned(),
+                frequency_hz,
+            )?;
+            if !result.contains_frequency {
+                return Err(format!(
+                    "Frequency {} Hz not found in touchstone file {}",
+                    frequency_hz, file_path
+                )
+                .into());
+            }
+            let gain_db = result.gain.ok_or_else(|| {
+                format!(
+                    "Frequency {} Hz not found in touchstone file {}",
+                    frequency_hz, file_path
+                )
+            })?;
+            Ok(Block {
                 name,
                 gain_db,
-                noise_figure_db,
-                output_p1db_dbm,
-                output_ip3_dbm,
-            } => {
-                blocks.push(Block {
-                    name,
-                    gain_db,
-                    noise_figure_db,
-                    output_p1db_dbm,
-                    output_ip3_dbm,
-                });
-            }
-            BlockConfig::Touchstone {
-                file_path,
-                name,
-                noise_figure_db,
-                output_p1db_dbm,
-            } => {
-                // Touchstone files might also be relative to the config file
-                let full_path = base_dir.join(&file_path);
-                let TouchstoneValid {
-                    contains_frequency,
-                    gain,
-                } = touchstone_file_path_and_frequency_to_struct(
-                    full_path.to_string_lossy().to_string(),
-                    frequency,
-                )?;
+                noise_figure_db: noise_figure_db.unwrap_or(-gain_db),
+                output_p1db_dbm: output_p1db_dbm.or(Some(99.0)),
+                output_ip3_dbm: None,
+            })
+        }
+        BlockConfig::Include { .. } => Err("Unresolved config include".into()),
+    }
+}
 
-                if !contains_frequency {
-                    let file_path_relative_to_config = file_path.clone();
-                    return Err(format!(
-                        "Frequency {} Hz not found in touchstone file {}",
-                        frequency, file_path_relative_to_config
-                    )
-                    .into());
-                }
+fn resolve_sweep_block(
+    block: BlockConfig,
+    base_dir: &Path,
+) -> Result<FrequencyBlock, Box<dyn std::error::Error>> {
+    match block {
+        BlockConfig::Tabulated { name, samples } => tabulated_block(name, samples),
+        BlockConfig::Touchstone {
+            file_path,
+            name,
+            noise_figure_db,
+            output_p1db_dbm,
+        } => {
+            let network = Network::new(base_dir.join(&file_path))?;
+            ensure_transmission_ports(&network)?;
+            let samples = network
+                .s_db(2, 1)
+                .into_iter()
+                .map(|point| {
+                    let gain_db = point.s_db.decibel();
+                    FrequencySample {
+                        frequency_hz: point.frequency,
+                        block: Block {
+                            name: name.clone(),
+                            gain_db,
+                            noise_figure_db: noise_figure_db.unwrap_or(-gain_db),
+                            output_p1db_dbm: output_p1db_dbm.or(Some(99.0)),
+                            output_ip3_dbm: None,
+                        },
+                    }
+                })
+                .collect();
+            Ok(FrequencyBlock::tabulated(samples)?)
+        }
+        block => Ok(FrequencyBlock::constant(resolve_static_block(
+            block, 0.0, base_dir,
+        )?)?),
+    }
+}
 
-                let gain = gain.unwrap();
-                let noise_figure_default = -gain; // only handles passives right now
-                let output_p1db_default = 99.0; // 99 dBm
+fn ensure_transmission_ports(network: &Network) -> Result<(), Box<dyn std::error::Error>> {
+    if network.rank < 2 {
+        return Err(format!(
+            "Touchstone file {} requires at least two ports for S21 gain (found {})",
+            network.name, network.rank
+        )
+        .into());
+    }
+    Ok(())
+}
 
-                let final_noise_figure = noise_figure_db.unwrap_or(noise_figure_default);
-                let final_output_p1db = output_p1db_dbm.or(Some(output_p1db_default));
-
-                blocks.push(Block {
-                    name,
-                    gain_db: gain,
-                    noise_figure_db: final_noise_figure,
-                    output_p1db_dbm: final_output_p1db,
-                    output_ip3_dbm: None,
-                });
-            }
-            BlockConfig::Include { path } => {
-                let included_path = base_dir.join(&path);
-                tracing::debug!("Loading included config: {}", included_path.display());
-                let content = fs::read_to_string(&included_path)?;
-                let included: IncludedConfig = toml::from_str(&content)?;
-
-                let new_base_dir = included_path.parent().unwrap_or_else(|| Path::new("."));
-                load_blocks_recursive(included.blocks, frequency, blocks, new_base_dir)?;
-            }
+fn run_sweep(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    if args.len() != 6 {
+        return Err("Usage: gainlineup sweep <FILE> <START_HZ> <STOP_HZ> <POINTS>".into());
+    }
+    let start_hz = args[3]
+        .parse::<f64>()
+        .map_err(|_| "START_HZ must be a frequency in Hz, for example 1e9")?;
+    let stop_hz = args[4]
+        .parse::<f64>()
+        .map_err(|_| "STOP_HZ must be a frequency in Hz, for example 2e9")?;
+    let points = args[5]
+        .parse::<usize>()
+        .map_err(|_| "POINTS must be an integer of at least 2")?;
+    let sweep = FrequencySweep::linear(start_hz, stop_hz, points)?;
+    let config = read_config(&args[2])?;
+    let mut blocks = Vec::new();
+    visit_blocks(&args[2], config.blocks, &mut |block, base_dir| {
+        blocks.push(resolve_sweep_block(block, base_dir)?);
+        Ok(())
+    })?;
+    let input = Input {
+        power_dbm: config.input_power_dbm,
+        frequency_hz: start_hz,
+        bandwidth_hz: config.bandwidth_hz.unwrap_or(100.0),
+        noise_temperature_k: Some(config.noise_temperature_k.unwrap_or(290.0)),
+    };
+    // Validate and calculate the entire sweep before emitting a header or any rows.
+    let results = cascade_frequency_sweep(&input, &blocks, &sweep)?;
+    let stdout = std::io::stdout();
+    let mut output = stdout.lock();
+    writeln!(output, "frequency_hz,stage_index,stage_name,signal_power_dbm,noise_power_dbm,cumulative_gain_db,cumulative_noise_figure_db,snr_db,cumulative_oip3_dbm,sfdr_db")?;
+    for point in results {
+        for (index, node) in point.nodes.iter().enumerate() {
+            writeln!(
+                output,
+                "{},{},\"{}\",{},{},{},{},{},{},{}",
+                point.frequency_hz,
+                index + 1,
+                node.name.replace('"', "\"\""),
+                node.signal_power_dbm,
+                node.noise_power_dbm,
+                node.cumulative_gain_db,
+                node.cumulative_noise_figure_db,
+                node.signal_to_noise_ratio_db(),
+                node.cumulative_oip3_dbm
+                    .map(|v| v.to_string())
+                    .unwrap_or_default(),
+                node.sfdr_db.map(|v| v.to_string()).unwrap_or_default(),
+            )?;
         }
     }
     Ok(())
@@ -191,6 +342,7 @@ pub fn touchstone_file_path_and_frequency_to_struct(
 ) -> Result<TouchstoneValid, Box<dyn std::error::Error>> {
     tracing::debug!("Loading touchstone file: {}", file_path);
     let s2p = Network::new(file_path.clone())?;
+    ensure_transmission_ports(&s2p)?;
 
     // check if frequency is within the touchstone file
 
@@ -234,6 +386,10 @@ pub struct Command {}
 
 impl Command {
     pub fn run(args: &[String]) -> Result<Command, Box<dyn std::error::Error>> {
+        if args.get(1).map(String::as_str) == Some("sweep") {
+            run_sweep(args)?;
+            return Ok(Command {});
+        }
         if args.len() < 2 {
             return Err("not enough arguments".into());
         }
@@ -372,11 +528,19 @@ pub fn print_help() {
     println!();
     println!("{}{}USAGE:{}", BOLD, YELLOW, RESET);
     println!("    {} gainlineup <FILE_PATH>{}", GREEN, RESET);
+    println!(
+        "    {} gainlineup sweep <FILE_PATH> <START_HZ> <STOP_HZ> <POINTS>{}",
+        GREEN, RESET
+    );
     println!();
     println!("     FILE_PATH: path to a toml config file");
     println!();
     println!("     The toml file is parsed and an interactive plot (html file and js/ folder) ");
     println!("     is created next to the source file(s).");
+    println!("     sweep writes CSV to stdout without creating a plot. Frequencies are in Hz.");
+    println!("     Use an ascending range and at least two points; both endpoints are included.");
+    println!("     Tabulated and Touchstone blocks interpolate dB/dBm values linearly in Hz.");
+    println!("     Sweep frequencies must lie inside every table's measured range.");
 
     println!();
     println!("{}{}OPTIONS:{}", BOLD, YELLOW, RESET);
@@ -392,6 +556,10 @@ pub fn print_help() {
     println!("{}{}EXAMPLES:{}", BOLD, YELLOW, RESET);
     println!("    {} # Single file (Relative path){}", CYAN, RESET);
     println!("    {} gainlineup files/config.toml{}", GREEN, RESET);
+    println!(
+        "    {} gainlineup sweep files/frequency_sweep.toml 1e9 2e9 11 > sweep.csv{}",
+        GREEN, RESET
+    );
     println!();
 }
 

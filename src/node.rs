@@ -99,9 +99,17 @@ pub struct SignalNode {
     /// Input-referred temperature in Kelvin: source temperature plus the
     /// stages' equivalent input noise temperatures, if available.
     pub cumulative_noise_temperature: Option<f64>,
-    /// Cascaded output-referred IP3 in dBm, if available.
+    /// Small-signal, output-referred IP3 estimate in dBm, if available.
+    ///
+    /// A block with no IP3 makes this estimate unavailable. A later block with
+    /// a specified IP3 restarts the estimate from that block. Such an estimate
+    /// excludes all earlier stages; it does not characterize the full chain.
     pub cumulative_oip3_dbm: Option<f64>,
-    /// Spur-free dynamic range in dB, if OIP3 is available.
+    /// Two-tone, third-order spur-free dynamic range in dB, if OIP3 is available.
+    ///
+    /// Uses `2/3 * (cumulative_oip3_dbm - noise_power_dbm)`, with both powers
+    /// referred to this node's output and noise integrated over the signal
+    /// bandwidth. This small-signal estimate does not predict compression.
     pub sfdr_db: Option<f64>,
     /// Output P1dB at this node in dBm, if applicable.
     pub output_p1db_dbm: Option<f64>,
@@ -197,6 +205,11 @@ impl SignalNode {
     }
 
     /// Cascade this node through another block, producing a new [`SignalNode`].
+    ///
+    /// Output-referred intercepts use the small-signal power-gain relation
+    /// `1/OIP3_out = 1/(G_block * OIP3_previous) + 1/OIP3_block` in linear units.
+    /// The estimate restarts at the current block if the previous IP3 is
+    /// unavailable. It remains unavailable if the current block has no IP3.
     ///
     /// # Examples
     ///
@@ -308,20 +321,17 @@ impl SignalNode {
                 let prev_oip3_linear = rfconversions::power::dbm_to_watts(prev_oip3_dbm);
                 let block_oip3_linear = rfconversions::power::dbm_to_watts(block_oip3_dbm);
                 let gain_linear = rfconversions::power::db_to_linear(block.gain_db);
-                let inv_cascade = gain_linear / prev_oip3_linear + 1.0 / block_oip3_linear;
+                let inv_cascade = 1.0 / (gain_linear * prev_oip3_linear) + 1.0 / block_oip3_linear;
                 Some(rfconversions::power::watts_to_dbm(1.0 / inv_cascade))
             }
             (None, Some(block_oip3_dbm)) => Some(block_oip3_dbm),
             _ => None,
         };
 
-        // SFDR calculation
+        // OIP3 and integrated noise must share the same output reference plane.
         let new_cumulative_gain_db = self.cumulative_gain_db + stage_power_gain;
-        let sfdr_db = cumulative_oip3_dbm.map(|oip3| {
-            let noise_floor_dbm =
-                -174.0 + 10.0 * output_bandwidth_hz.log10() + cumulative_noise_figure;
-            2.0 / 3.0 * (oip3 - noise_floor_dbm)
-        });
+        let sfdr_db =
+            cumulative_oip3_dbm.map(|oip3| 2.0 / 3.0 * (oip3 - total_noise_power_at_output_dbm));
 
         SignalNode {
             name: output_node_name,
@@ -810,7 +820,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cascaded_oip3_two_stage() {
+    fn unknown_ip3_clears_estimate_and_later_characterized_block_restarts_it() {
         // LNA (gain=30dB, OIP3=+20dBm) → Attenuator (gain=-6dB, no IP3)
         let input_node = super::SignalNode {
             name: "Input".to_string(),
@@ -848,6 +858,63 @@ mod tests {
         // Attenuator has no OIP3 → cascade result is None
         let after_atten = after_lna.cascade_block(&attenuator);
         assert_eq!(after_atten.cumulative_oip3_dbm, None);
+        assert_eq!(after_atten.sfdr_db, None);
+
+        // Preserve the API's local-estimate behavior after an unknown stage.
+        // This value excludes the earlier LNA and attenuator distortion.
+        let after_second_lna = after_atten.cascade_block(&lna);
+        assert_eq!(after_second_lna.cumulative_oip3_dbm, Some(20.0));
+        assert!(after_second_lna.sfdr_db.is_some());
+    }
+
+    #[test]
+    fn cascaded_oip3_two_amplifiers_uses_downstream_output_reference() {
+        let input = crate::Input::new(1.0e9, 1.0e6, -60.0, Some(290.0));
+        let first = super::Block {
+            name: "First amplifier".to_string(),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
+            output_ip3_dbm: Some(20.0),
+        };
+        let second = super::Block {
+            name: "Second amplifier".to_string(),
+            output_ip3_dbm: Some(30.0),
+            ..first.clone()
+        };
+
+        let first_node = input.cascade_block(&first);
+        assert_eq!(first_node.cumulative_oip3_dbm, Some(20.0));
+        let second_node = first_node.cascade_block(&second);
+        // The first 100 mW intercept becomes 1000 mW after 10 dB gain.
+        // Two 1000 mW contributions combine to 500 mW = 26.989700 dBm.
+        assert!((second_node.cumulative_oip3_dbm.unwrap() - 26.989700043360187).abs() < 1e-10);
+    }
+
+    #[test]
+    fn cascaded_oip3_attenuator_reduces_upstream_intercept() {
+        let input = crate::Input::new(1.0e9, 1.0e6, -60.0, Some(290.0));
+        let amplifier = super::Block {
+            name: "Amplifier".to_string(),
+            gain_db: 10.0,
+            noise_figure_db: 3.0,
+            output_p1db_dbm: None,
+            output_ip3_dbm: Some(20.0),
+        };
+        let attenuator = super::Block {
+            name: "Characterized attenuator".to_string(),
+            gain_db: -10.0,
+            noise_figure_db: 10.0,
+            output_p1db_dbm: None,
+            output_ip3_dbm: Some(20.0),
+        };
+
+        let after_amplifier = input.cascade_block(&amplifier);
+        assert_eq!(after_amplifier.cumulative_oip3_dbm, Some(20.0));
+        let after_attenuator = after_amplifier.cascade_block(&attenuator);
+        // Upstream 100 mW becomes 10 mW after the loss. Including the
+        // attenuator's finite 100 mW intercept gives 100/11 mW = 9.586073 dBm.
+        assert!((after_attenuator.cumulative_oip3_dbm.unwrap() - 9.58607314841775).abs() < 1e-10);
     }
 
     #[test]
@@ -895,29 +962,29 @@ mod tests {
         assert_eq!(n1.cumulative_oip3_dbm, Some(30.0));
 
         let n2 = n1.cascade_block(&mixer);
-        // 1/OIP3_new = G_mixer_linear/OIP3_lna_linear + 1/OIP3_mixer_linear
+        // 1/OIP3_new = 1/(G_mixer_linear*OIP3_lna_linear) + 1/OIP3_mixer_linear
         // G_mixer = 10^(-8/10) = 0.158489
         // OIP3_lna = 10^(30/10) * 0.001 = 1.0 W
         // OIP3_mixer = 10^(15/10) * 0.001 = 0.031623 W
-        // 1/OIP3_new = 0.158489/1.0 + 1/0.031623 = 0.158489 + 31.623 = 31.7815
-        // OIP3_new = 0.031465 W = 10*log10(0.031465/0.001) = 14.978 dBm
+        // 1/OIP3_new = 1/0.158489 + 1/0.031623 = 6.30957 + 31.62278
+        // OIP3_new = 0.0263627 W = 14.209903 dBm
         let oip3_2 = n2.cumulative_oip3_dbm.unwrap();
         assert!(
-            (oip3_2 - 14.978).abs() < 0.1,
-            "Expected ~14.978, got {}",
+            (oip3_2 - 14.209902503474334).abs() < 1e-10,
+            "Expected ~14.209903, got {}",
             oip3_2
         );
 
         let n3 = n2.cascade_block(&if_amp);
-        // Cascaded again with IF amp
+        // Downstream 25 dB gain raises the earlier intercept to 39.209903 dBm.
+        // Combining it with the IF amp's 25 dBm yields 24.838310 dBm.
         let oip3_3 = n3.cumulative_oip3_dbm.unwrap();
-        // Should be less than min(25, 14.978) since cascade always degrades
-        assert!(oip3_3 < 25.0, "Cascaded OIP3 should be < 25 dBm");
+        assert!((oip3_3 - 24.838309518430044).abs() < 1e-10);
         assert!(n3.sfdr_db.is_some(), "SFDR should be computed");
     }
 
     #[test]
-    fn test_sfdr_calculation() {
+    fn sfdr_uses_output_noise_reference() {
         let input_node = super::SignalNode {
             name: "Input".to_string(),
             signal_power_dbm: -30.0,
@@ -935,23 +1002,50 @@ mod tests {
         let lna = super::Block {
             name: "LNA".to_string(),
             gain_db: 20.0,
-            noise_figure_db: 3.0,
+            noise_figure_db: 0.0,
             output_p1db_dbm: None,
             output_ip3_dbm: Some(30.0),
         };
 
         let node = input_node.cascade_block(&lna);
         let sfdr = node.sfdr_db.unwrap();
-        // noise_floor = -174 + 10*log10(1e6) + cumulative_nf
-        // SFDR = 2/3 * (OIP3 - noise_floor)
-        let expected_noise_floor = -174.0 + 60.0 + node.cumulative_noise_figure_db;
-        let expected_sfdr = 2.0 / 3.0 * (30.0 - expected_noise_floor);
+        // -100 dBm source noise + 20 dB gain = -80 dBm output noise.
+        // SFDR = 2/3 * (30 - (-80)) = 73 1/3 dB.
+        let expected_sfdr = 73.33333333333333;
+        assert!((node.noise_power_dbm - (-80.0)).abs() < 1e-10);
         assert!(
             (sfdr - expected_sfdr).abs() < 0.01,
             "Expected SFDR ~{}, got {}",
             expected_sfdr,
             sfdr
         );
+    }
+
+    #[test]
+    fn sfdr_tracks_source_temperature_and_noise_bandwidth() {
+        let amplifier = super::Block {
+            name: "Noiseless amplifier".to_string(),
+            gain_db: 20.0,
+            noise_figure_db: 0.0,
+            output_p1db_dbm: None,
+            output_ip3_dbm: Some(30.0),
+        };
+
+        // Independent kTB calculations with k = 1.380649e-23 J/K and
+        // 20 dB gain give output noise -93.975187, -90.964887, -83.975187 dBm.
+        // Doubling T lowers SFDR by 2.006867 dB; 10x bandwidth lowers it by 6 2/3 dB.
+        for (temperature_k, bandwidth_hz, expected_sfdr) in [
+            (290.0, 1.0e6, 82.65012479615207),
+            (580.0, 1.0e6, 80.6432581583922),
+            (290.0, 1.0e7, 75.9834581294854),
+        ] {
+            let input = crate::Input::new(1.0e9, bandwidth_hz, -60.0, Some(temperature_k));
+            let node = input.cascade_block(&amplifier);
+            assert!(
+                (node.sfdr_db.unwrap() - expected_sfdr).abs() < 1e-10,
+                "SFDR at {temperature_k} K and {bandwidth_hz} Hz"
+            );
+        }
     }
 
     // ----- Phase 4: Dynamic Range at Node Level -----
