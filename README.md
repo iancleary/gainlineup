@@ -29,7 +29,7 @@ fields are output-referred dBm values.
 
 ```toml
 [dependencies]
-gainlineup = "0.22.5"
+gainlineup = "0.23.0"
 ```
 
 ## Quick Start
@@ -501,8 +501,7 @@ The CLI generates an HTML visualization of the cascade:
 
 The sweep API evaluates the existing cascade at each frequency. It returns every
 stage output, so you can inspect gain, NF, signal power, noise, compression, and
-linearity across a band. These additions are available in this checkout; use a
-path dependency until the next release.
+linearity across a band. These additions are available in gainlineup 0.23.0.
 
 The S-band sweep examples use the **2200–2290 MHz near-Earth S-band space-to-Earth
 downlink**. NASA's [S-band allocation overview](https://explorers.larc.nasa.gov/2023ESE/pdf_files/S-Band-Overview_2-8GHz.pdf)

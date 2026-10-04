@@ -104,9 +104,9 @@ if [[ -n "$notes_file" && ! -f "$notes_file" ]]; then
   exit 2
 fi
 
+version_unchanged=0
 if [[ "$version" == "$current_version" ]]; then
-  echo "error: target version matches current version ($current_version)" >&2
-  exit 2
+  version_unchanged=1
 fi
 
 git fetch --tags origin
@@ -161,22 +161,33 @@ if [[ "$dry_run" == 1 ]]; then
 
   git archive --format=tar HEAD | tar -x -C "$tmp"
   cd "$tmp"
-  update_version_files "$version"
+  if [[ "$version_unchanged" == 0 ]]; then
+    update_version_files "$version"
+  fi
   run_checks
 
   echo "Dry run complete for $package_name $current_version -> $version."
-  echo "Would update Cargo.toml and Cargo.lock."
-  echo "Would commit: chore: release $tag"
-  echo "Would tag: $tag"
+  if [[ "$version_unchanged" == 1 ]]; then
+    echo "Would release the existing version without changing version files or creating a commit."
+    echo "Would tag current HEAD: $tag"
+  else
+    echo "Would update Cargo.toml and Cargo.lock."
+    echo "Would commit: chore: release $tag"
+    echo "Would tag the release commit: $tag"
+  fi
   echo "Would push branch and tag to origin, then create a GitHub release."
   exit 0
 fi
 
-update_version_files "$version"
+if [[ "$version_unchanged" == 0 ]]; then
+  update_version_files "$version"
+fi
 run_checks
 
-git add Cargo.toml Cargo.lock
-git commit -m "chore: release $tag"
+if [[ "$version_unchanged" == 0 ]]; then
+  git add Cargo.toml Cargo.lock
+  git commit -m "chore: release $tag"
+fi
 git tag -a "$tag" -m "$tag"
 git push origin "$current_branch"
 git push origin "$tag"
