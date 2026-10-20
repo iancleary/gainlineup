@@ -41,6 +41,7 @@ mod constants;
 mod file_operations;
 mod input;
 mod node;
+mod noise;
 mod open;
 
 #[cfg(feature = "plot")]
@@ -53,6 +54,7 @@ pub use amplifier_model::{AmplifierModel, AmplifierModelBuilder, AmplifierPoint}
 pub use block::{Block, Imd3Point};
 pub use input::Input;
 pub use node::{DynamicRange, SignalNode};
+pub use noise::{integrate_small_signal_noise, IntegratedNoise, NoiseContribution, NoiseError};
 pub use sweep::{
     cascade_frequency_sweep, FrequencyBlock, FrequencySample, FrequencySweep, FrequencySweepPoint,
     SweepError,

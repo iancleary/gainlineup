@@ -33,6 +33,10 @@ path = "demos/transceiver_sweeps.rs"
 name = "gnss_receiver"
 path = "demos/gnss_receiver.rs"
 
+[[example]]
+name = "spectral_noise"
+path = "demos/spectral_noise.rs"
+
 [[bench]]
 name = "cascade_performance"
 harness = false

@@ -59,6 +59,14 @@ separately authorized implementation, use the repository's required Rust gates
 and relevant end-to-end acceptance cases; the reference calculator is not a
 substitute.
 
+For proposals about integrated noise, first check the implemented baseline in
+`docs/spectral-noise.md` and `src/noise.rs`. Run `cargo run --quiet --example
+spectral_noise` to inspect source/stage attribution and grid refinement, and
+`cargo test --test spectral_noise --test readme_13_spectral_noise` for the
+analytic and public-example checks. Keep quadrature convergence, characterization
+density, and measured hardware validation separate; the demo uses illustrative
+tables. This baseline check does not authorize changes to the model.
+
 ## Common failures and recovery
 
 - **Unavailable paper or blocked publisher:** use an authorized institutional

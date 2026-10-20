@@ -195,7 +195,7 @@ impl FrequencyBlock {
 
     // Internal evaluations can borrow constants and exact samples. The public
     // API still returns an independently owned Block.
-    fn evaluate(&self, frequency_hz: f64) -> Result<Cow<'_, Block>, SweepError> {
+    pub(crate) fn evaluate(&self, frequency_hz: f64) -> Result<Cow<'_, Block>, SweepError> {
         validate_frequency(frequency_hz)?;
         let samples = match &self.response {
             Response::Constant(block) => return Ok(Cow::Borrowed(block)),
