@@ -568,6 +568,55 @@ The executable mirror is [tests/readme_11_frequency_sweep.rs](tests/readme_11_fr
   noise across the swept band, change signal bandwidth, or translate frequency.
   Existing `Block`, `Input`, and single-frequency cascade APIs remain usable.
 
+### Spectral Noise Integration (on this branch; not released)
+
+Unlike a frequency sweep's independent narrowband results,
+`integrate_small_signal_noise` integrates output noise over the declared band.
+Use it only for matched, linear, frequency-preserving paths with independent
+added noise and a source temperature constant across the band. It always uses
+nominal small-signal gain: P1dB/IP3 metadata have no effect, and it cannot check
+the hardware operating point. A stage named `Mixer` does not translate frequency.
+
+```rust
+use gainlineup::{integrate_small_signal_noise, Block, FrequencyBlock, FrequencySweep};
+
+let lna = FrequencyBlock::constant(Block {
+    name: "LNA".into(),
+    gain_db: 20.0,
+    noise_figure_db: 10.0 * 2.0_f64.log10(), // noise factor 2, referenced to 290 K
+    output_p1db_dbm: None,
+    output_ip3_dbm: None,
+})?;
+let grid = FrequencySweep::linear(990e6, 991e6, 41)?;
+let noise = integrate_small_signal_noise(75.0, &[lna], &grid)?;
+assert_eq!(noise.frequency_points, 41);
+assert_eq!(noise.contributions[0].name, "LNA");
+assert!((noise.total_noise_watts / 5.03936885e-13 - 1.0).abs() < 1e-12);
+println!("Source: {:.6e} W; LNA: {:.6e} W; total: {:.6e} W",
+    noise.source_noise_watts, noise.contributions[0].noise_power_watts,
+    noise.total_noise_watts);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Executable mirror: [tests/readme_13_spectral_noise.rs](tests/readme_13_spectral_noise.rs).
+Contributions remain in input order (including duplicate names), all referred
+to the final output, and sum with the propagated source noise in watts.
+Explicit zero-K source and zero-NF stages are accepted classical ideal limits.
+At least two grid points and one block are required; out-of-table evaluation
+and unrepresentable arithmetic fail without partial results.
+
+Run the table-characterized illustrative receiver and inspect grid refinement:
+
+```bash
+cargo run --quiet --example spectral_noise
+```
+
+The [spectral-noise guide](docs/spectral-noise.md) explains the equations,
+reference planes, verified example values, convergence, and finite-band limits.
+Fine quadrature does not refine sparse characterization data or recover missing
+filter tails. This library-only addition does not change legacy cascades or add
+a CLI command.
+
 ### CLI and Component Tables
 
 Run from the repository root:
@@ -693,7 +742,7 @@ The next modeling improvements, in implementation order, are:
 | 1 | Explicit mixer stage and frequency plan, with LO reference, selected product, image frequency, inversion, and port limits | 2245 MHz RF and 2145 MHz LO produce 100 MHz IF; report the 2045 MHz image and evaluate the next filter at 100 MHz |
 | 2 | Oscillator phase-noise samples versus offset, LO-drive limits, and buffer residual noise | Check drive margin at RX/TX mixer ports; integrate phase noise over stated offset limits; calculate blocker reciprocal mixing |
 | 3 | Named operating states and shared component identities, with separate switch insertion-loss and isolation paths | Select RX or TX routes; +30 dBm TX and 50 dB isolation give −20 dBm leakage before downstream losses |
-| 4 | Filter response and equivalent noise bandwidth, distinct from signal bandwidth | Halving rectangular noise bandwidth lowers white-noise power by 3.01 dB; integrate noise through downstream filters |
+| 4 | Filter ENBW summaries and noise integration through frequency-translating paths | Build on the separate small-signal spectral-noise evaluator; keep signal bandwidth, integration band, and ENBW distinct |
 | 5 | Requirement margins and tolerance sweeps, with explicit unknown versus ideal linearity | Check sensitivity, gain ripple, compression/backoff, LO drive, and leakage across frequency and component tolerances |
 
 Use a companion stage/system layer for these additions so existing `Block` and
@@ -728,6 +777,9 @@ scalar cascade.
 | `FrequencySample` | A block characterization at one frequency |
 | `FrequencySweepPoint` | Frequency and every stage's output node |
 | `SweepError` | Invalid sweep inputs, characterization, or numerical results |
+| `IntegratedNoise` | Declared-band small-signal output noise budget (on this branch) |
+| `NoiseContribution` | One input-ordered stage's added noise at the final output |
+| `NoiseError` | Invalid integration conditions, characterization, or numerical limits |
 
 ### Cascade Functions
 
@@ -738,6 +790,7 @@ scalar cascade.
 | `cascade_am_am_sweep()`          | `Vec<(Pin, Pout)>` through full chain |
 | `cascade_gain_compression_sweep()`| `Vec<(Pin, Gain)>` through full chain |
 | `cascade_frequency_sweep()` | `Result<Vec<FrequencySweepPoint>, SweepError>` |
+| `integrate_small_signal_noise()` | `Result<IntegratedNoise, NoiseError>` (on this branch) |
 
 ### Block Methods
 
@@ -835,7 +888,8 @@ See [literature-backed modeling opportunities](docs/literature-opportunities.md)
 for a prioritized research shortlist: spectral noise integration, calibrated PA
 models, correlation-aware uncertainty, image/reciprocal mixing, and Bussgang
 distortion estimates. It includes source links, implementation boundaries, and
-acceptance cases; these are proposals, not additional implemented features.
+acceptance cases. The separate spectral-noise evaluator is implemented on this
+branch; the report identifies the remaining proposals and validation limits.
 
 - Pozar, D. *Microwave Engineering* (4th ed.) — Friis equation, noise figure, IP3
 - Razavi, B. *RF Microelectronics* (2nd ed.) — dynamic range, SFDR, receiver design

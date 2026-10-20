@@ -1,13 +1,16 @@
 # Literature-backed modeling opportunities
 
-This is a research shortlist, **not implemented functionality or a replacement
-roadmap**. It was checked against gainlineup 0.23.1, including the frequency
+This is a research shortlist, **not a replacement roadmap**. The first
+small-signal spectral-noise evaluator is now implemented on this branch,
+**not yet released**; the other model families remain proposals. The original
+shortlist was checked against gainlineup 0.23.1, including the frequency
 sweeps, GNSS/transceiver examples, and standalone Monte Carlo example. The
 recommendations favor established models that can produce useful, verifiable
 results with modest inputs—not novelty for its own sake.
 
 Implementation is tracked in [issue #79](https://github.com/iancleary/gainlineup/issues/79).
-The documentation kickoff does not implement these models or close that issue.
+The documentation kickoff did not implement these models. The first code
+milestone below does not complete all proposals or close that issue.
 Coordinate correctness and API decisions with the existing
 [1.0 readiness review, #78](https://github.com/iancleary/gainlineup/issues/78);
 the proposed extensions are not all prerequisites for 1.0.
@@ -33,12 +36,13 @@ Items 2 and 5 address limitations of the current amplifier approximation.
 
 ### First implementation milestone
 
-Deliver a library-first, small-signal spectral-noise evaluator for one
-characterized receiver path. Reuse `FrequencyBlock` characterization and return
-band-integrated output noise, separate source/stage contributions, and explicit
-integration limits. Verify analytic limits, node-by-node attribution, and grid
-refinement before adding a CLI or more model families. The detailed delivery
-checklist lives in [issue #79](https://github.com/iancleary/gainlineup/issues/79).
+Implemented on this branch: a library-first, small-signal spectral-noise evaluator
+for one characterized receiver path; see the [spectral-noise guide](spectral-noise.md)
+and [runnable receiver](../demos/spectral_noise.rs). It reuses `FrequencyBlock`
+characterization and returns band-integrated output noise, separate source/stage
+contributions, and explicit integration limits. Analytic limits, node-by-node
+attribution, and illustrative grid refinement are verified through public APIs.
+The detailed delivery checklist lives in [issue #79](https://github.com/iancleary/gainlineup/issues/79).
 
 Keep frequency translation, large-signal noise, mismatch, and waveform metrics
 out of this first delivery. A temperature-aware passive-loss constructor can be
@@ -53,15 +57,17 @@ and “Thermal Noise in Networks and Attenuators,” make the important distinct
 between spectral noise temperature and physical temperature. The integration
 and attribution below are an application of those principles to this crate.
 
-**Current gap.** [Frequency sweeps](../src/sweep.rs) evaluate independent
+**Original gap (addressed by the separate evaluator on this branch).**
+[Frequency sweeps](../src/sweep.rs) still evaluate independent
 narrowband lineups with a fixed `Input::bandwidth_hz`.
 [Node noise](../src/node.rs) is already integrated over that assumed bandwidth.
 The GNSS example explicitly does not integrate its SAW response. Averaging the
 existing dBm results would not produce a correct band-integrated answer.
 
-**Smallest useful feature.** Add a separate small-signal spectral-noise evaluator
-using the existing characterized components. At each frequency, for matched
-scalar stages with independent added noise:
+**Implemented first slice (not released).**
+[`integrate_small_signal_noise`](../src/noise.rs) is the separate small-signal
+spectral-noise evaluator using the existing characterized components. At each
+frequency, for matched scalar stages with independent added noise:
 
 ```text
 G_i(f)        = linear power gain of stage i
@@ -83,8 +89,9 @@ chain. Signal occupied bandwidth, integration bandwidth, and ENBW must remain
 distinct. For a modulated signal, filtered signal power also needs its spectrum;
 a single carrier can simply use the gain at its frequency.
 
-A useful small addition is a temperature-aware passive-loss constructor. For a
-matched attenuator with linear loss `L >= 1` in the classical regime:
+A remaining useful small addition is a temperature-aware passive-loss constructor
+(not part of this first code milestone). For a matched attenuator with linear
+loss `L >= 1` in the classical regime:
 
 ```text
 T_e = (L - 1) × T_physical
@@ -94,7 +101,10 @@ F   = 1 + T_e / 290 K
 Thus `NF_dB = loss_dB` holds at 290 K, not at every physical temperature. This
 can construct an ordinary `Block`; no new field on every block is required.
 
-**Acceptance cases before shipping:**
+**Acceptance cases:** Analytic spectral cases are covered by
+[public regression workflows](../tests/spectral_noise.rs), and grid refinement is
+demonstrated with illustrative tables. Validation against measured filter data
+and the passive-temperature constructor case remain follow-ups.
 
 - A flat, uncompressed lineup reproduces the existing `kTB` result.
 - Halving a rectangular integration bandwidth changes white-noise power by
@@ -108,10 +118,13 @@ can construct an ordinary `Block`; no new field on every block is required.
 - A real filter table produces stable integrated noise when the frequency grid
   is refined, and the reported contributions sum in watts.
 
-**Limits.** Start with linear, matched, non-frequency-translating paths. Reject
-or explicitly mark operation beyond the small-signal model's validity. Integrate
-in linear units, use actual Hz spacing on irregular/log grids, and do not
-extrapolate beyond characterization. Finite measurement spans omit filter tails;
+**Limits.** The implemented evaluator requires linear, matched,
+frequency-preserving paths with independent added noise and constant source
+temperature. It always uses nominal small-signal gain: P1dB/IP3 metadata have
+no effect, and without signal power it cannot validate the hardware operating
+point. The caller must establish validity; a stage named Mixer does not imply
+frequency conversion. Integrate in linear units, use actual Hz spacing on
+irregular/log grids, and do not extrapolate beyond characterization. Finite measurement spans omit filter tails;
 report a band-limited integral rather than pretending it is an infinite-band
 ENBW. Keep mismatch/network analysis in `touchstone` and quantum-noise extensions
 out of the initial feature.
@@ -415,4 +428,6 @@ uv run --no-project .agents/skills/rf-literature-review/scripts/reference_cases.
 
 The calculator does **not** call gainlineup, validate a new implementation, or
 establish hardware accuracy. It supplies independent numerical acceptance
-references for future implementation. No RF behavior changed in this review.
+references, not evidence that the Rust implementation works. The original
+research changed no RF behavior; verification of the new evaluator is recorded
+in the [spectral-noise guide](spectral-noise.md).
