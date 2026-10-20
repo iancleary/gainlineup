@@ -831,6 +831,12 @@ including compression, source temperature, missing intercepts, and table samples
 
 ## References
 
+See [literature-backed modeling opportunities](docs/literature-opportunities.md)
+for a prioritized research shortlist: spectral noise integration, calibrated PA
+models, correlation-aware uncertainty, image/reciprocal mixing, and Bussgang
+distortion estimates. It includes source links, implementation boundaries, and
+acceptance cases; these are proposals, not additional implemented features.
+
 - Pozar, D. *Microwave Engineering* (4th ed.) — Friis equation, noise figure, IP3
 - Razavi, B. *RF Microelectronics* (2nd ed.) — dynamic range, SFDR, receiver design
 - [Noise Figure — Wikipedia](https://en.wikipedia.org/wiki/Noise_figure)
