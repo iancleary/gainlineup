@@ -1,8 +1,9 @@
 # Literature-backed modeling opportunities
 
 This is a research shortlist, **not a replacement roadmap**. The first
-small-signal spectral-noise evaluator is now implemented on this branch,
-**not yet released**; the other model families remain proposals. The original
+small-signal spectral-noise evaluator and its temperature-aware passive-loss
+constructor follow-up are now implemented on this branch, **not yet released**;
+the other model families remain proposals. The original
 shortlist was checked against gainlineup 0.23.1, including the frequency
 sweeps, GNSS/transceiver examples, and standalone Monte Carlo example. The
 recommendations favor established models that can produce useful, verifiable
@@ -45,9 +46,9 @@ attribution, and illustrative grid refinement are verified through public APIs.
 The detailed delivery checklist lives in [issue #79](https://github.com/iancleary/gainlineup/issues/79).
 
 Keep frequency translation, large-signal noise, mismatch, and waveform metrics
-out of this first delivery. A temperature-aware passive-loss constructor can be
-a separate follow-up rather than a prerequisite. The existing scalar and
-frequency-sweep APIs retain their current behavior.
+out of this first delivery. The small temperature-aware passive-loss constructor
+follow-up is also implemented on this branch, not released. The existing scalar
+and frequency-sweep APIs retain their current behavior.
 
 ## 1. Integrate noise spectra, not a single center-frequency noise floor
 
@@ -89,9 +90,10 @@ chain. Signal occupied bandwidth, integration bandwidth, and ENBW must remain
 distinct. For a modulated signal, filtered signal power also needs its spectrum;
 a single carrier can simply use the gain at its frequency.
 
-A remaining useful small addition is a temperature-aware passive-loss constructor
-(not part of this first code milestone). For a matched attenuator with linear
-loss `L >= 1` in the classical regime:
+**Implemented follow-up (on this branch, not released):**
+[`Block::passive_loss`](../src/block.rs) is a checked temperature-aware passive-loss
+constructor. For a matched attenuator with linear loss `L >= 1` in the classical
+regime:
 
 ```text
 T_e = (L - 1) × T_physical
@@ -99,12 +101,18 @@ F   = 1 + T_e / 290 K
 ```
 
 Thus `NF_dB = loss_dB` holds at 290 K, not at every physical temperature. This
-can construct an ordinary `Block`; no new field on every block is required.
+constructs an ordinary `Block`; no new field on every block is required.
+P1dB/IP3 remain unspecified, not characterized ideal linearity. Invalid inputs
+and conservative numerical limits return `PassiveLossError`. See the
+[passive-loss guide](spectral-noise.md#temperature-aware-passive-loss) for reference
+planes, zero-K limits, and mixed-temperature source/stage budgets.
 
 **Acceptance cases:** Analytic spectral cases are covered by
 [public regression workflows](../tests/spectral_noise.rs), and grid refinement is
-demonstrated with illustrative tables. Validation against measured filter data
-and the passive-temperature constructor case remain follow-ups.
+demonstrated with illustrative tables. The passive-temperature constructor and
+mixed-temperature scalar/spectral prefix cases are covered by
+[public passive-loss workflows](../tests/passive_loss.rs). Validation against
+measured filter data and hardware remains pending.
 
 - A flat, uncompressed lineup reproduces the existing `kTB` result.
 - Halving a rectangular integration bandwidth changes white-noise power by
