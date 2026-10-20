@@ -617,6 +617,34 @@ Fine quadrature does not refine sparse characterization data or recover missing
 filter tails. This library-only addition does not change legacy cascades or add
 a CLI command.
 
+### Temperature-Aware Passive Loss (on this branch; not released)
+
+Use `Block::passive_loss` for a matched attenuator or filter at a known physical
+**device** temperature. Source temperature is separate; noise figure remains
+referenced to 290 K. At 290 K, NF equals loss; colder devices add less noise.
+
+```rust
+use gainlineup::{Block, Input, PassiveLossError};
+
+let pad = Block::passive_loss("150 K pad", 10.0 * 2.0_f64.log10(), 150.0)?;
+assert!((pad.noise_figure_db - 1.8105467858723132).abs() < 1e-12);
+let output = Input::new(1e9, 1e6, -100.0, Some(290.0)).cascade_block(&pad);
+// Output temperature: 290/2 + 150*(1 - 1/2) = 220 K.
+let output_watts = 1e-3 * 10.0_f64.powf(output.noise_power_dbm / 10.0);
+assert!((output_watts / (1.380649e-23 * 220.0 * 1e6) - 1.0).abs() < 1e-12);
+assert_eq!(output.cumulative_oip3_dbm, None); // Unspecified, not ideal linearity.
+# Ok::<(), PassiveLossError>(())
+```
+
+Executable mirror: [tests/readme_14_passive_loss.rs](tests/readme_14_passive_loss.rs).
+The result is an ordinary `Block`, reusable with `FrequencyBlock::constant` and
+spectral integration. P1dB/IP3 are unspecified (`None`), not characterized ideal
+linearity. `PassiveLossError::{InvalidLoss, InvalidTemperature, Numerical}`
+identifies nonfinite or negative inputs, or conservative floating-point limits.
+Zero loss and zero K give zero NF; zero K is only a classical ideal limit. Later public field changes are not validated. See the
+[passive-loss model and mixed-temperature budget](docs/spectral-noise.md#temperature-aware-passive-loss)
+for assumptions, numerical limits, and source/stage reference planes.
+
 ### CLI and Component Tables
 
 Run from the repository root:
@@ -780,6 +808,7 @@ scalar cascade.
 | `IntegratedNoise` | Declared-band small-signal output noise budget (on this branch) |
 | `NoiseContribution` | One input-ordered stage's added noise at the final output |
 | `NoiseError` | Invalid integration conditions, characterization, or numerical limits |
+| `PassiveLossError` | Invalid passive loss, device temperature, or constructor numerical limits |
 
 ### Cascade Functions
 
@@ -796,6 +825,7 @@ scalar cascade.
 
 | Method                        | Returns                              |
 |-------------------------------|--------------------------------------|
+| `passive_loss(name, loss_db, physical_temperature_k)` | `Result<Block, PassiveLossError>`; checked matched passive constructor |
 | `output_power(pin)`           | Pout with compression                |
 | `power_gain(pin)`             | Gain at a given input level          |
 | `dynamic_range_db(bw)`        | Output-referred DR (P1dB - noise)    |

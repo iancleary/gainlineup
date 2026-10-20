@@ -41,6 +41,33 @@ pub struct Block {
     pub output_ip3_dbm: Option<f64>,
 }
 
+/// Invalid passive-loss parameters or unrepresentable constructor arithmetic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PassiveLossError {
+    /// Loss in dB must be finite and nonnegative.
+    InvalidLoss,
+    /// Physical device temperature in kelvin must be finite and nonnegative.
+    InvalidTemperature,
+    /// A required conversion overflowed or a positive quantity underflowed to zero.
+    Numerical,
+}
+
+impl fmt::Display for PassiveLossError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::InvalidLoss => "passive loss_db must be finite and nonnegative",
+            Self::InvalidTemperature => {
+                "passive physical_temperature_k must be finite and nonnegative"
+            }
+            Self::Numerical => {
+                "unrepresentable passive-loss arithmetic; check loss and temperature magnitudes"
+            }
+        })
+    }
+}
+
+impl std::error::Error for PassiveLossError {}
+
 impl fmt::Display for Block {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -70,6 +97,87 @@ impl Default for Block {
     }
 }
 impl Block {
+    /// Construct a matched passive loss at a physical device temperature.
+    ///
+    /// For linear power loss `L = 10^(loss_db/10)`, the equivalent **input-referred**
+    /// added temperature is `Te = (L - 1) * physical_temperature_k`. The noise factor
+    /// is `F = 1 + Te / 290`, referenced to **290 K**, not to the source temperature.
+    /// Gain is `-loss_db`; at 290 K the noise figure equals the loss in dB.
+    /// This classical, matched, frequency-preserving model excludes mismatch,
+    /// correlated noise and quantum corrections. Zero loss or zero kelvin gives
+    /// zero NF (zero kelvin is an ideal classical limit, not realizable hardware).
+    ///
+    /// Both output-referred P1dB and IP3 are explicitly `None`: **unspecified**,
+    /// not characterized ideal linearity. Establish a small-signal operating point
+    /// separately. The returned ordinary [`Block`] stores no physical temperature;
+    /// later public field mutations are not validated by this constructor.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PassiveLossError::InvalidLoss`] or
+    /// [`PassiveLossError::InvalidTemperature`] for nonfinite or negative inputs.
+    /// [`PassiveLossError::Numerical`] covers unrepresentable conversions or positive
+    /// quantities underflowing to zero. Conservative `f64` limits require positive
+    /// representable linear gain and, for nonzero loss and temperature, representable
+    /// `L - 1`, `Te / 290`, NF and its linear factor. The dimensionless temperature
+    /// is computed directly to avoid needless overflow of `Te`. Zero-temperature
+    /// losses need only a representable gain; zero loss accepts any finite temperature.
+    /// Subnormal precision loss and ordinary rounding remain possible. Tiny positive
+    /// NF is retained with `exp_m1`/`ln_1p`, though legacy scalar helpers may round it
+    /// away. Success does not guarantee representability of later cascade arithmetic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gainlineup::{Block, PassiveLossError};
+    /// let pad = Block::passive_loss("Cold pad", 10.0 * 2.0_f64.log10(), 150.0)?;
+    /// assert!((pad.noise_figure_db - 1.8105467858723132).abs() < 1e-12);
+    /// assert_eq!(pad.output_ip3_dbm, None); // Unspecified, not ideal linearity.
+    /// # Ok::<(), PassiveLossError>(())
+    /// ```
+    pub fn passive_loss(
+        name: impl Into<String>,
+        loss_db: f64,
+        physical_temperature_k: f64,
+    ) -> Result<Block, PassiveLossError> {
+        if !loss_db.is_finite() || loss_db < 0.0 {
+            return Err(PassiveLossError::InvalidLoss);
+        }
+        if !physical_temperature_k.is_finite() || physical_temperature_k < 0.0 {
+            return Err(PassiveLossError::InvalidTemperature);
+        }
+        let positive = |value: f64| {
+            if value.is_finite() && value > 0.0 {
+                Ok(value)
+            } else {
+                Err(PassiveLossError::Numerical)
+            }
+        };
+        positive(10.0_f64.powf(-loss_db / 10.0))?;
+        let noise_figure_db = if loss_db == 0.0 || physical_temperature_k == 0.0 {
+            0.0
+        } else {
+            let excess_loss = positive((loss_db * (std::f64::consts::LN_10 / 10.0)).exp_m1())?;
+            let temperature_ratio = physical_temperature_k / 290.0;
+            let excess_factor = positive(if temperature_ratio == 0.0 {
+                // Scaling a subnormal temperature first could erase a finite product.
+                (excess_loss * physical_temperature_k) / 290.0
+            } else {
+                excess_loss * temperature_ratio
+            })?;
+            let nf_db = positive(excess_factor.ln_1p() * (10.0 / std::f64::consts::LN_10))?;
+            positive(10.0_f64.powf(nf_db / 10.0))?;
+            nf_db
+        };
+        Ok(Self {
+            name: name.into(),
+            gain_db: -loss_db,
+            noise_figure_db,
+            output_p1db_dbm: None,
+            output_ip3_dbm: None,
+        })
+    }
+
     /// Equivalent noise temperature of this block in Kelvin.
     ///
     /// # Examples

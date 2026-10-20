@@ -44,6 +44,89 @@ Watts are canonical, including zero noise. Only convert positive results with
 Zero kelvin and zero NF are accepted as classical ideal limits, not claims of
 physically realizable hardware or a quantum-noise model.
 
+## Temperature-aware passive loss
+
+`Block::passive_loss(name, loss_db, physical_temperature_k)` is implemented on
+this branch, **not released**. It constructs an ordinary block for a matched,
+classical passive attenuator/filter without adding state or changing legacy
+calculations. With linear power loss `L >= 1`:
+
+```text
+G = 1/L                     gain_db = -loss_db
+Te = (L - 1) * T_device      [K, equivalent input-referred added temperature]
+F = 1 + Te / 290            NF_dB = 10*log10(F)
+T_output = T_source/L + T_device*(1 - 1/L)
+```
+
+Keep three temperatures distinct: `T_source` describes incident source noise,
+`T_device` is the physical lossy component temperature, and **290 K** is the
+fixed NF reference, not an implicit device or source temperature. For nonzero
+loss, `NF_dB = loss_db` only at 290 K. Loss `L=2` at 150 K gives **1.8105467858723132 dB NF**;
+at 290 K it gives 3.01029995664 dB, and at zero K it gives zero NF as a
+classical ideal limit. At equal source/device temperature, the output is `k*T*B`
+for any supported attenuation: loss of source noise is balanced by device noise.
+
+The [README example](../README.md#temperature-aware-passive-loss-on-this-branch-not-released)
+shows the scalar API. Reuse the same constructed blocks in spectral integration:
+
+```rust
+use gainlineup::{Block, FrequencyBlock, FrequencySweep, integrate_small_signal_noise};
+
+let pads = [
+    Block::passive_loss("Cold pad", 10.0 * 2.0_f64.log10(), 150.0)?,
+    Block::passive_loss("Warm pad", 10.0 * 4.0_f64.log10(), 300.0)?,
+];
+let models = pads.into_iter().map(FrequencyBlock::constant)
+    .collect::<Result<Vec<_>, _>>()?;
+let grid = FrequencySweep::linear(1e9, 1.001e9, 5)?;
+let budget = integrate_small_signal_noise(290.0, &models, &grid)?;
+assert!((budget.total_noise_watts / (1.380649e-23 * 280.0 * 1e6) - 1.0).abs() < 1e-12);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Independent budgets in output-equivalent kelvin (multiply by `k*B` for watts):
+
+| Chain prefix | Source | First pad | Second pad | Total |
+| --- | ---: | ---: | ---: | ---: |
+| L2 at 150 K | 145 | 75 | — | 220 |
+| L2 at 150 K → L4 at 300 K | 36.25 | 18.75 | 225 | 280 |
+| L4 at 300 K | 72.5 | 225 | — | 297.5 |
+| L4 at 300 K → L2 at 150 K | 36.25 | 112.5 | 75 | 223.75 |
+
+[Public integration coverage](../tests/passive_loss.rs) checks these prefixes,
+ordering, source/stage attribution, and scalar node output watts using the same
+components, plus thermal equilibrium and numeric boundaries. These output
+budgets are not `SignalNode::cumulative_noise_temperature`, which is
+input-referred; multiply that field by cumulative linear gain to compare.
+Run `cargo test --test passive_loss --test readme_14_passive_loss`.
+
+The constructor leaves both output P1dB and IP3 **unspecified** (`None`), not
+infinite or characterized ideal linearity. No clamp is introduced. Establish
+small-signal validity yourself. Do not infer a full-chain OIP3/SFDR when an
+intercept is missing: the legacy cascade can restart a local OIP3 estimate
+after an unknown stage. The constructor does not change that behavior, validate
+later public field edits, or retain temperature for automatic recalculation.
+
+Troubleshooting constructor errors:
+
+- `PassiveLossError::InvalidLoss`: supply finite `loss_db >= 0`, not negative gain.
+- `InvalidTemperature`: supply finite device temperature `>= 0` in kelvin.
+- `Numerical`: required positive arithmetic underflowed to zero or overflowed.
+  Linear gain must be positive and representable. For positive loss/temperature,
+  `L-1`, `Te/290`, NF and its linear factor must also be representable. This is a
+  conservative `f64` domain, not arbitrary precision: for example 3100 dB at
+  290 K is rejected because `L-1` overflows; 3200 dB at zero K is accepted
+  because gain is still positive and no added-noise conversion is needed.
+  Zero loss accepts even the largest finite temperature. The calculation scales
+  temperature before multiplication to avoid needless `Te` overflow, and handles
+  subnormal temperatures separately when that scaling would erase them.
+  `exp_m1`/`ln_1p` preserve tiny positive NF; legacy scalar noise helpers may
+  still round tiny NF to zero. Subnormal precision loss and ordinary rounding
+  remain possible; later chain/integral arithmetic can still fail independently.
+
+This is an analytic matched classical model, not measured filter validation.
+Measured hardware validation remains pending.
+
 ## Signal bandwidth is not the integration band
 
 The older `cascade_frequency_sweep` evaluates independent lineups with fixed
@@ -125,7 +208,8 @@ lossy filter also adds thermal noise.
   effects are outside this scalar model.
 - **Temperature:** source temperature must be finite and nonnegative, with no
   implicit default. Stage NF is referenced to 290 K, not the source temperature.
-  A physical-temperature-aware passive constructor remains a separate follow-up.
+  Use `Block::passive_loss` for a device temperature different from 290 K;
+  see the constructor assumptions and error limits above.
 - **Coverage errors:** `NoiseError::Characterization` reports the zero-based
   stage index and frequency and wraps `SweepError` as its error source. Narrow
   the band or supply defensible additional characterization; do not silently

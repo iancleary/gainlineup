@@ -65,7 +65,10 @@ spectral_noise` to inspect source/stage attribution and grid refinement, and
 `cargo test --test spectral_noise --test readme_13_spectral_noise` for the
 analytic and public-example checks. Keep quadrature convergence, characterization
 density, and measured hardware validation separate; the demo uses illustrative
-tables. This baseline check does not authorize changes to the model.
+tables. For device-temperature proposals, check `Block::passive_loss` and run
+`cargo test --test passive_loss --test readme_14_passive_loss` to verify the
+matched-loss scalar/spectral budgets. Distinguish source, device, and 290 K NF
+reference temperatures. These baseline checks do not authorize model changes.
 
 ## Common failures and recovery
 

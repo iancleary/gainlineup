@@ -51,7 +51,7 @@ mod amplifier_model;
 mod sweep;
 
 pub use amplifier_model::{AmplifierModel, AmplifierModelBuilder, AmplifierPoint};
-pub use block::{Block, Imd3Point};
+pub use block::{Block, Imd3Point, PassiveLossError};
 pub use input::Input;
 pub use node::{DynamicRange, SignalNode};
 pub use noise::{integrate_small_signal_noise, IntegratedNoise, NoiseContribution, NoiseError};
