@@ -1,3 +1,13 @@
+<!-- rf-crates-repository-handoff -->
+> **Development and issue tracking have moved to [iancleary/rf-crates](https://github.com/iancleary/rf-crates).**
+>
+> The `gainlineup` crate retains its name, MIT license, and independent version.
+> Current source: [crates/gainlineup](https://github.com/iancleary/rf-crates/tree/main/crates/gainlineup).
+> Open work has been rehomed with source links and dependency ordering; see the
+> [handoff record](https://github.com/iancleary/rf-crates/blob/main/docs/repository-migration.md).
+> This repository preserves historical releases and review discussions. Its
+> legacy CI/publication workflow is disabled. Do not create new releases here.
+
 # gainlineup
 
 RF signal chain (gain lineup) analysis for receiver and transmitter design.
